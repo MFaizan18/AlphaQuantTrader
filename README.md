@@ -95,6 +95,14 @@ And the last 10 rows of the data are as follows:
 | 30-07-2024 | 24839.40039  | 24971.75     | 24798.65039  | 24857.30078  | 24857.30078 | 385000 |
 ```
 
+**Split the data based on the date**
+
+```python
+split_date = '2022-01-01'
+training_data = data[data.index < split_date].copy()
+test_data = data[data.index >= split_date].copy()
+```
+This code segment divides the dataset into training and testing sets. Specifically, data from January 1, 2014, to December 31, 2021, is used as the training data to build and train the model. The remaining data, from January 1, 2022, to July 31, 2024, is reserved as test data to evaluate the model's performance on more recent, unseen data.
 
 
 
