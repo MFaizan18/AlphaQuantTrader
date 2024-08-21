@@ -52,6 +52,12 @@ from tensorflow.keras.models import load_model
 from sklearn.preprocessing import StandardScaler
 import joblib
 ```
+## 5) Preprocessing
+
+The preprocessing phase is crucial for preparing raw financial data into a form suitable for training the reinforcement learning model. This step involves acquiring historical market data, cleaning it, and engineering the necessary features to ensure that the model receives meaningful input for effective learning.
+
+
+
 
 
 
