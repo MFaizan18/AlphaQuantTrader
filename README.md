@@ -1,4 +1,4 @@
-![image](https://github.com/user-attachments/assets/cbe19caa-904a-4255-87f1-cabe30d99040)# AlphaQuantTrader
+# AlphaQuantTrader
 
 Welcome to the AlphaQuantTrader project! This powerful trading bot is designed to revolutionize the way you approach algorithmic trading by leveraging advanced machine learning techniques and Bayesian statistics.
 
