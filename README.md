@@ -1,1 +1,2 @@
 # AlphaQuantTrader
+This project implements a reinforcement learning-based trading bot that utilizes deep learning and Bayesian statistics to optimize stock trading strategies. The bot is designed to interact with a custom-built trading environment, which simulates the buying, holding, and selling of stocks based on historical market data. By leveraging a deep Q-network, the bot learns to maximize its portfolio value over time while managing risk through a dynamic Bayesian approach.
