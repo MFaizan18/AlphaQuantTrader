@@ -27,3 +27,31 @@ Through reinforcement learning, the bot continuously seeks to optimize its portf
 ## 3) Why Use AlphaQuantTrader?
 
 AlphaQuantTrader is ideal for traders and developers looking to automate and enhance their trading strategies with cutting-edge AI. Whether you're aiming to reduce the manual effort in trading or seeking a robust system that adapts to market changes, AlphaQuantTrader provides the tools and intelligence to help you stay ahead in the financial markets. With its combination of deep learning and Bayesian techniques, AlphaQuantTrader offers a strategic edge that goes beyond traditional trading algorithms.
+
+# 4) Model Overview
+
+Let's start by importimg the necessary libraries
+
+```python
+import yfinance as yf
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.stats import norm
+import gym
+from gym import spaces
+import random
+from collections import deque, namedtuple
+import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense
+from tensorflow.keras.layers import Dense, Conv1D, MaxPooling1D, Flatten, LSTM, TimeDistributed, Input, Bidirectional
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.regularizers import l2
+from tensorflow.keras.models import load_model
+from sklearn.preprocessing import StandardScaler
+import joblib
+```
+
+
+
