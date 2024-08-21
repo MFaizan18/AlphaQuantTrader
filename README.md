@@ -104,6 +104,19 @@ test_data = data[data.index >= split_date].copy()
 ```
 This code segment divides the dataset into training and testing sets. Specifically, data from January 1, 2014, to December 31, 2021, is used as the training data to build and train the model. The remaining data, from January 1, 2022, to July 31, 2024, is reserved as test data to evaluate the model's performance on more recent, unseen data.
 
+**Calculate daily returns on the training data**
+
+```python
+training_data['Daily Returns'] = training_data['Close'].pct_change()
+```
+To prepare the data for further analysis, daily returns are calculated on the training dataset. This is done by taking the percentage change in the closing prices, which helps in understanding the daily price movements.
+
+```python
+training_data_cleaned = training_data[['Adj Close', 'Daily Returns']].copy()
+```
+ The training data is then cleaned to retain only the adjusted closing prices and the newly calculated daily returns. These will be essential for the upcoming model calculations and derivations.
+
+
 
 
 
