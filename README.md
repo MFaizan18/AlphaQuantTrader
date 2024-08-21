@@ -58,7 +58,7 @@ The preprocessing phase is crucial for preparing raw financial data into a form 
 
 **5.1) Data Acquisition**
 
-We use the yfinance library in Python to download historical stock price data from Yahoo Finance. We evaluate our model on National Stock Exchange of India (^NSEI) index:
+We utilize the `yfinance` library in Python to download historical stock price data from Yahoo Finance, focusing on the National Stock Exchange of India (^NSEI) index for model evaluation.
 
 
 
