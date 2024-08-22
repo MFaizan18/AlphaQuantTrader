@@ -116,6 +116,34 @@ training_data_cleaned = training_data[['Adj Close', 'Daily Returns']].copy()
 ```
  The training data is then cleaned to retain only the adjusted closing prices and the newly calculated daily returns. These will be essential for the upcoming model calculations and derivations.
 
+ **Volatility and Dynamic Window Size Calculation**
+
+In this phase of the project, the aim is to calculate market volatility and adjust the analysis window size dynamically based on this volatility. These steps are crucial for capturing the changing market dynamics more accurately. To better understand market conditions, it's important to calculate how much prices fluctuate over time (volatility) and adjust the analysis window size accordingly. Below is the code that handles these calculations:
+
+```python
+def calculate_fixed_window_volatility(data, window_size=20):
+    """Calculate rolling volatility with a fixed window size."""
+    return data.rolling(window=window_size).std()
+
+def determine_dynamic_window_size(volatility, min_window=5, max_window=20):
+    """Determine dynamic window size based on volatility."""
+    inverse_volatility = 1 / volatility.replace(0, np.nan)  # Handle zero volatility
+    normalized_window_size = (inverse_volatility - inverse_volatility.min()) / (inverse_volatility.max() - inverse_volatility.min())
+    dynamic_window_size = normalized_window_size * (max_window - min_window) + min_window
+    return dynamic_window_size.fillna(min_window).astype(int)  # Fill NaNs and cast to int
+
+training_data_cleaned['volatility'] = calculate_fixed_window_volatility(training_data_cleaned['Daily Returns'])
+
+training_data_cleaned['dynamic_window_sizes'] = determine_dynamic_window_size(training_data_cleaned['volatility'])
+```
+This code block begins by calculating the rolling volatility of daily returns using the `calculate_fixed_window_volatility` function. The function takes the daily returns from training_data_cleaned and calculates how volatile the market has been over the last 20 days, storing the results in the volatility column.
+
+Next, the `determine_dynamic_window_size` function adjusts the window size dynamically based on the calculated volatility. This adjustment ensures that when the market is more volatile, the analysis focuses on more recent data by using a smaller window size. The dynamically adjusted window sizes are then stored in the `dynamic_window_sizes` column of the training_data_cleaned DataFrame.
+
+These calculations are crucial for ensuring that the model remains sensitive to market conditions, allowing it to adapt to changes in volatility over time.
+
+
+
 
 
 
