@@ -142,6 +142,11 @@ Next, the `determine_dynamic_window_size` function adjusts the window size dynam
 
 These calculations are crucial for ensuring that the model remains sensitive to market conditions, allowing it to adapt to changes in volatility over time.
 
+**Autocorrelation Function (ACF) and Partial Autocorrelation Function (PACF)**
+
+In this project, a fixed window size of 20 was chosen for calculating rolling volatility. This decision was informed by analyzing the Autocorrelation Function (ACF) and Partial Autocorrelation Function (PACF) plots of the volatility data.
+
+
 
 
 
