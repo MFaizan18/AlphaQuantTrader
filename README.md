@@ -146,6 +146,8 @@ These calculations are crucial for ensuring that the model remains sensitive to 
 
 In this project, a fixed window size of 20 was chosen for calculating rolling volatility. This decision was informed by analyzing the Autocorrelation Function (ACF) and Partial Autocorrelation Function (PACF) plots of the volatility data.
 
+![ACF&PACF Plot of Volatility](ACF&PACF.png)
+
 
 
 
