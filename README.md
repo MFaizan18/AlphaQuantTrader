@@ -148,6 +148,11 @@ In this project, a fixed window size of 20 was chosen for calculating rolling vo
 
 ![ACF&PACF Plot of Volatility](ACF&PACF.png)
 
+The ACF plot shows the correlation between the volatility and its lagged values, while the PACF plot helps in understanding the direct relationship between volatility and its lags, excluding the influence of intermediate lags.
+
+Upon examining these plots, it was observed that the significant correlations and patterns start to diminish around the 20th lag. This indicates that a 20-day window effectively captures the relevant historical volatility, making it a suitable choice for the fixed window size in this context.
+
+This selection ensures that the model accounts for the most impactful recent volatility trends, without incorporating too much noise from older data.
 
 
 
