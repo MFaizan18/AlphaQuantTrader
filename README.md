@@ -498,6 +498,132 @@ class TradingEnv(gym.Env):
 
  **Render Method:** Provides visualization for the trading performance over time, plotting price, balance, and portfolio value, which is useful for debugging and understanding the agent’s decisions
 
+**6.3) Predefined Strategy**
+
+To kickstart our reinforcement learning model, we've developed a strategy to pre-populate the memory buffer with meaningful experiences. This strategy allows the model to start learning from a more informed baseline, rather than from completely random actions.
+
+```python
+def predefined_strategy(env, num_steps):
+    previous_cdf = None
+    current_position = None  # can be 'buy', 'hold', or 'sell'
+    entry_price = None  # price at which the asset was bought
+    balance = env.initial_balance
+    stock_owned = 0
+    transaction_cost = env.transaction_cost
+    trading_results = []
+
+    for index in range(num_steps):
+        row = env.data.iloc[index]
+        current_cdf = row['CDF']
+        current_price = row['Adj Close']
+        reward = 0
+        action = None
+
+        if previous_cdf is None:
+            previous_cdf = current_cdf
+            trading_results.append((None, 0, balance, stock_owned))
+            continue
+
+        if current_cdf > previous_cdf:
+            if current_position is None or current_position == 'sell':
+                current_position = 'buy'
+                entry_price = current_price
+                shares_to_buy = (balance * 0.15) / (current_price * (1 + transaction_cost))
+                stock_owned += shares_to_buy
+                balance -= shares_to_buy * current_price * (1 + transaction_cost)
+                action = 2  # Buy
+            else:
+                current_position = 'hold'
+                action = 1  # Hold
+                if index > 0:
+                    previous_price = env.data.iloc[index - 1]['Adj Close']
+                    reward = current_price - previous_price
+        elif current_cdf == previous_cdf:
+            if current_position == 'buy' or current_position == 'hold':
+                current_position = 'hold'
+                action = 1  # Hold
+                if index > 0:
+                    previous_price = env.data.iloc[index - 1]['Adj Close']
+                    reward = current_price - previous_price
+        else:  # current_cdf < previous_cdf
+            if current_position == 'buy' or current_position == 'hold':
+                current_position = 'sell'
+                action = 0  # Sell
+                reward = current_price - entry_price
+                balance += stock_owned * current_price * (1 - transaction_cost)
+                stock_owned = 0
+                entry_price = None
+            else:
+                current_position = None
+                action = 0  # Sell
+                reward = -0.5
+
+        if current_position is None:
+            reward = -0.5
+       
+        previous_cdf = current_cdf
+     
+        trading_results.append((action, reward, balance, stock_owned))
+
+    if current_position == 'buy' or current_position == 'hold':
+        balance += stock_owned * current_price * (1 - transaction_cost)
+        stock_owned = 0
+
+    return trading_results
+
+def generate_initial_experiences(env, memory_buffer, num_steps):
+    state = env.reset()
+    state = normalize_state(state)
+    state = state.reshape(1, state_size, 1)
+
+    trading_results = predefined_strategy(env, num_steps)
+
+    for index, (action, reward, balance, stock_owned) in enumerate(trading_results):
+      
+        if action is None or action not in [0, 1, 2]:
+           # print(f"Invalid action at index {index}: {action}")
+            continue  # Skip this step if action is invalid
+        next_state, _, _, _ = env.step(action)
+        next_state = normalize_state(next_state)
+        next_state = next_state.reshape(1, state_size, 1)
+
+        done = (index == len(trading_results) - 1)
+        exp = experience(state, action, reward, next_state, done)
+        store_experience(memory_buffer, exp)
+
+        state = next_state
+
+def setup_timesteps(num_episodes, dataset_size, min_percentage, max_percentage):
+    min_timesteps = int(dataset_size * min_percentage)
+    max_timesteps = int(dataset_size * max_percentage)
+    
+    timesteps_per_episode = []
+    for _ in range(num_episodes):
+        timesteps = random.randint(min_timesteps, max_timesteps)
+        timesteps_per_episode.append(timesteps)
+    return timesteps_per_episode
+
+# setting up the no of episodes and no of episodes
+num_episodes = 600  # Number of episodes
+dataset_size = len(data)  # Size of the dataset
+min_percentage = 0.30 # Minimum percentage of the dataset size (30%)
+max_percentage = 0.40  # Maximum percentage of the dataset size (40%)
+num_timesteps = setup_timesteps(num_episodes, dataset_size, min_percentage, max_percentage)
+
+memory_buffer = deque(maxlen=100000)  # Set replay buffer size to 100000
+  
+# Populate the buffer initially up to 20000
+initial_population_size = 20000 
+current_population = 0
+
+for episode_timesteps in num_timesteps:
+    if current_population >= initial_population_size:
+        break
+    generate_initial_experiences(env, memory_buffer, episode_timesteps)
+    current_population = len(memory_buffer)
+```
+
+
 
 
 
