@@ -484,7 +484,7 @@ class TradingEnv(gym.Env):
 **Action and Observation Space:**
 
 * Action Space: Defined using `spaces.Discrete(3)`, representing three possible actions: `0` (Sell), `1` (Hold), and `2` (Buy).
-*Observation Space: Defined using `spaces.Box`, representing the financial state of the agent, including `balance, number of stocks owned, and various financial indicators (like adjusted close price, daily returns, volatility, Bayesian updated mean, standard deviation, and CDF).
+* Observation Space: Defined using `spaces.Box`, representing the financial state of the agent, including `balance, number of stocks owned, and various financial indicators (like adjusted close price, daily returns, volatility, Bayesian updated mean, standard deviation, and CDF).
 
 **Reset Method:** Resets the environment to its initial state, allowing the model to start fresh from a random point in the data, ensuring a diverse learning experience.
 
@@ -494,9 +494,9 @@ class TradingEnv(gym.Env):
 * Uses precomputed Bayesian standard deviation to adjust the reward based on risk, encouraging the agent to prefer less risky trades.
 * Tracks the trading history for later analysis and visualization.
 
-  **Observation Method (_get_observation):** Provides the current state of the environment as a `NumPy` array, capturing essential details required for decision-making by the RL agent.
+**Observation Method (_get_observation):** Provides the current state of the environment as a `NumPy` array, capturing essential details required for decision-making by the RL agent.
 
-  **Render Method:** Provides visualization for the trading performance over time, plotting price, balance, and portfolio value, which is useful for debugging and understanding the agent’s decisions
+ **Render Method:** Provides visualization for the trading performance over time, plotting price, balance, and portfolio value, which is useful for debugging and understanding the agent’s decisions
 
 
 
