@@ -182,19 +182,19 @@ These initial values are crucial for the Bayesian formulas that follow.
 
 The code then employs Bayesian formulas to update the posterior mean and variance, as well as to adjust the parameters of the Inverse-Gamma distribution, which models the uncertainty in volatility.
 
-<u>Updating the Posterior Mean and Variance:</u>
+*Updating the Posterior Mean and Variance:
 
 The posterior mean (`mu_posterior`) and variance (`sigma_posterior_squared`) are updated using the following formulas:
 
 ![Posterior Mean and Variance](Posterior_Mean&Variance.png)
 
 where: 
-* `x_i` represents the new daily return data point.
-* `mu_prior` and `sigma_prior_squared` are the prior estimates for the mean and variance, respectively.
-* `sigma_x_squared` is the variance of the observed data.
-* These formulas update the mean and variance by combining prior knowledge with new observations, weighted by their respective variances
++ `x_i` represents the new daily return data point.
++ `mu_prior` and `sigma_prior_squared` are the prior estimates for the mean and variance, respectively.
++ `sigma_x_squared` is the variance of the observed data.
++ These formulas update the mean and variance by combining prior knowledge with new observations, weighted by their respective variances
 
-- Updating the Inverse-Gamma Distribution Parameters:
+* Updating the Inverse-Gamma Distribution Parameters:
     
 The parameters of the Inverse-Gamma distribution, alpha_posterior and beta_posterior, are updated as follows:
 
