@@ -494,7 +494,7 @@ class TradingEnv(gym.Env):
 * Uses precomputed Bayesian standard deviation to adjust the reward based on risk, encouraging the agent to prefer less risky trades.
 * Tracks the trading history for later analysis and visualization.
 
-**Observation Method (_get_observation):** Provides the current state of the environment as a `NumPy` array, capturing essential details required for decision-making by the RL agent.
+**Observation Method (`_get_observation`):** Provides the current state of the environment as a NumPy array, capturing essential details required for decision-making by the RL agent.
 
  **Render Method:** Provides visualization for the trading performance over time, plotting price, balance, and portfolio value, which is useful for debugging and understanding the agent’s decisions
 
