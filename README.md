@@ -630,6 +630,47 @@ for episode_timesteps in num_timesteps:
     generate_initial_experiences(env, memory_buffer, episode_timesteps)
     current_population = len(memory_buffer)
 ```
+The function `predefined_strategy(env, num_steps)` is designed to generate a sequence of trading actions based on simple logic involving the cumulative distribution function (CDF) of price movements. The goal of this function is to simulate a trading agent that interacts with the environment and fills up the memory buffer with initial experiences.
+
+The predefined_strategy function outputs a list of trading results that contains the actions taken and the corresponding rewards.
+
+**State Normalization Function:**
+
+The `normalize_state(state)` function is a utility that normalizes the state using a pre-fitted scaler. This is crucial because machine learning models perform better with normalized input data.
+
+* Normalization Process: The input state is first converted to a DataFrame. The scaler, assumed to be pre-fitted on the training data, transforms the state features to a normalized scale. This normalized state is then flattened to be used as input for the model.
+
+**Experience Storage Function:**
+
+The store_experience(memory_buffer, experience) function adds an experience to the memory buffer.
+
+* Experience Replay: In reinforcement learning, experiences consist of state transitions and are used to train the model. The memory_buffer is a deque object that stores these experiences up to a certain capacity (100,000 in this case).
+
+**Generate Initial Experiences Function:**
+
+The generate_initial_experiences(env, memory_buffer, num_steps) function fills the memory buffer with initial trading experiences.
+
+* It resets the environment and obtains the initial state.
+* The `predefined_strategy` function is used to generate a series of predefined trading actions and results.
+* For each trading result, it steps through the environment, normalizes the next state, and stores the experience in the memory buffer.
+
+**Timesteps Setup Function**
+
+The setup_timesteps(num_episodes, dataset_size, min_percentage, max_percentage) function calculates random numbers of timesteps for each episode.
+
+* It generates a list of random timesteps for each episode based on a percentage range of the dataset size.
+* This randomness helps in creating varied lengths of experiences, making training more robust
+
+**Main Loop for Initial Experience Population**
+
+This code block initializes the memory buffer with initial experiences:
+
+* It sets up parameters such as the number of episodes and dataset size.
+* It initializes a memory buffer to store up to 100,000 experiences.
+* A loop iterates to populate the buffer with experiences generated from the predefined strategy until it reaches a specified size (20,000).
+
+Overall, this setup prepares the trading agent by providing a diverse set of initial experiences, which are crucial for effective reinforcement learning before starting the actual training process.
+
 
 
 
