@@ -165,9 +165,24 @@ Specifically, the Bayesian method helps in calculating the mean (mu_posterior) a
 
 **The Bayesian Formulas Used**
 
-The code employs Bayesian formulas to update the posterior mean and variance and to adjust the parameters of the Inverse-Gamma distribution, which models the uncertainty in volatility.
+The code starts by defining initial priors:
 
-Updating the Posterior Mean and Variance:
+```python
+mu_prior = 0  # Prior mean
+sigma_prior_squared = 1  # Prior variance
+alpha_prior = 3  # Prior alpha for Inverse-Gamma
+beta_prior = 2  # Prior beta for Inverse-Gamma
+```
+These priors represent the model's initial assumptions about the market's behavior:
+
+`mu_prior` is the prior mean, set to 0.
+`sigma_prior_squared` is the prior variance, set to 1.
+
+These initial values are crucial for the Bayesian formulas that follow.
+
+The code then employs Bayesian formulas to update the posterior mean and variance, as well as to adjust the parameters of the Inverse-Gamma distribution, which models the uncertainty in volatility.
+
++ Updating the Posterior Mean and Variance:
 
 The posterior mean (`mu_posterior`) and variance (`sigma_posterior_squared`) are updated using the following formulas:
 
@@ -178,6 +193,10 @@ where:
 * `mu_prior` and `sigma_prior_squared` are the prior estimates for the mean and variance, respectively.
 * `sigma_x_squared` is the variance of the observed data.
 * These formulas update the mean and variance by combining prior knowledge with new observations, weighted by their respective variances
+
+  + Updating the Inverse-Gamma Distribution Parameters:
+    
+The parameters of the Inverse-Gamma distribution, alpha_posterior and beta_posterior, are updated as follows:
 
 
 
