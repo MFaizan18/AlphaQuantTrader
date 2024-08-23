@@ -170,6 +170,7 @@ The code employs Bayesian formulas to update the posterior mean and variance and
 Updating the Posterior Mean and Variance:
 
 The posterior mean (`mu_posterior`) and variance (`sigma_posterior_squared`) are updated using the following formulas:
+
 ![Posterior Mean and Variance](Posterior_Mean&Variance.png)
 
 
