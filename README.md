@@ -284,7 +284,36 @@ where:
 cdf = norm.cdf(x_i, mu_posterior, np.sqrt(sigma_posterior_squared))
 cdfs[idx] = cdf
 ```
+The `norm.cdf` function calculates the CDF of a normal distribution using the updated posterior mean (mu_posterior) and standard deviation (np.sqrt(sigma_posterior_squared)).
+x_i is the current daily return data point for which we are computing the CDF. The calculated CDF value represents the probability that the daily return is less than or equal to x_i under the
+updated normal distribution. This value is stored in the cdfs list at the current index idx. Storing the CDF allows the model to track the likelihood of different outcomes as it processes new data, which is crucial for making informed trading decisions.
 
+**Setting the Posterior as the New Prior for the Next Iteration**
+
+Once the CDF has been calculated and stored, the model prepares for the next iteration. The updated posterior values (mean, variance, and Inverse-Gamma parameters) are set as the new priors for the next data point:
+
+```python
+mu_prior, sigma_prior_squared, alpha_prior, beta_prior = mu_posterior, sigma_posterior_squared, alpha_posterior, beta_posterior
+```
+The updated posterior mean (mu_posterior) and variance (sigma_posterior_squared) replace the prior mean (mu_prior) and variance (sigma_prior_squared), respectively. Similarly, the updated parameters of the Inverse-Gamma distribution (alpha_posterior and beta_posterior) become the new priors (alpha_prior and beta_prior). This step is essential for Bayesian updating as it allows the model to incorporate the most recent information into its future estimates. By using the posterior values as the new priors, the model effectively "learns" from the latest data point and adjusts its predictions accordingly.
+
+By calculating the CDF and updating the priors with the latest posterior values, the model continuously adapts to new data, maintaining an up-to-date and accurate understanding of market behavior. This iterative Bayesian process ensures that the model remains robust and responsive to changes, providing a dynamic framework for effective decision-making in a volatile market environment.
+
+Lets print the first 10 rows of the final dataset: 
+
+```
+Date         | Adj Close   | Daily Returns  | volatility | dynamic_window_sizes | updated_bayes_means | updated_bayes_sds | CDF
+------------------------------------------------------------------------------------------------------------------------------
+13-02-2014   | 6001.10     | -0.01363       | 0.00769    | 10                   | -0.01363            | 0.00753           | 0.49996
+14-02-2014   | 6048.35     | 0.00787        | 0.00787    | 10                   | -0.00348            | 0.00547           | 0.98106
+18-02-2014   | 6127.10     | 0.01302        | 0.00833    | 10                   | 0.00088             | 0.00469           | 0.99517
+19-02-2014   | 6152.75     | 0.00419        | 0.00840    | 10                   | 0.00176             | 0.00402           | 0.72676
+20-02-2014   | 6091.45     | -0.00996       | 0.00852    | 10                   | -0.00015            | 0.00367           | 0.00379
+21-02-2014   | 6155.45     | 0.01051        | 0.00895    | 9                    | 0.00123             | 0.00343           | 0.99659
+24-02-2014   | 6186.10     | 0.00498        | 0.00867    | 9                    | 0.00175             | 0.00318           | 0.84477
+25-02-2014   | 6200.05     | 0.00226        | 0.00725    | 11                   | 0.00183             | 0.00293           | 0.55789
+26-02-2014   | 6238.80     | 0.00625        | 0.00734    | 11                   | 0.00248             | 0.00271           | 0.91803
+```
 
 
 
