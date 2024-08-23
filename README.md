@@ -182,7 +182,7 @@ These initial values are crucial for the Bayesian formulas that follow.
 
 The code then employs Bayesian formulas to update the posterior mean and variance, as well as to adjust the parameters of the Inverse-Gamma distribution, which models the uncertainty in volatility.
 
-- Updating the Posterior Mean and Variance:
+<u>Updating the Posterior Mean and Variance:</u>
 
 The posterior mean (`mu_posterior`) and variance (`sigma_posterior_squared`) are updated using the following formulas:
 
