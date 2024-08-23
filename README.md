@@ -479,7 +479,7 @@ class TradingEnv(gym.Env):
 * The initial balance is set to $1,000,000.
 * The transaction cost per trade is set to 0.0000135, which is typical for financial markets.
 * We define the maximum number of timesteps based on the length of the input data, setting a limit on how many steps the model can take in one episode.
-* Other variables like balance, stock_owned, current_step, etc., are initialized to track the agent's state.
+* Other variables like `balance`, `stock_owned`, `current_step`, `current_position`, `entry_price`, `trading_history`, `action_space`, and `observation_space` are initialized to track the agent's state.
 
 
 
