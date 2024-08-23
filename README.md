@@ -273,6 +273,8 @@ Finally, the updated posterior mean and standard deviation are stored in the upd
 
 After updating the mean and standard deviation using the Bayesian formulas, these updated values are used to calculate the CDF:
 
+![Cumulative Distribution Function](CDF.png)
+
 
 
 
