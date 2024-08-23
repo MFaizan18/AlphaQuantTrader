@@ -275,6 +275,16 @@ After updating the mean and standard deviation using the Bayesian formulas, thes
 
 ![Cumulative Distribution Function](CDF.png)
 
+where:
+
+* The CDF gives the probability that a return will be below a certain level, based on the updated mean and standard deviation.
+* Calculating the CDF allows the model to evaluate the likelihood of different market outcomes, which is critical for making informed trading decisions.
+
+```python
+cdf = norm.cdf(x_i, mu_posterior, np.sqrt(sigma_posterior_squared))
+cdfs[idx] = cdf
+```
+
 
 
 
