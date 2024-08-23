@@ -194,7 +194,7 @@ where:
 * `sigma_x_squared` is the variance of the observed data.
 * These formulas update the mean and variance by combining prior knowledge with new observations, weighted by their respective variances
 
-* Updating the Inverse-Gamma Distribution Parameters:
+**Updating the Inverse-Gamma Distribution Parameters:**
     
 The parameters of the Inverse-Gamma distribution, alpha_posterior and beta_posterior, are updated as follows:
 
