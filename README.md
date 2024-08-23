@@ -154,6 +154,25 @@ Upon examining these plots, it was observed that the significant correlations an
 
 This selection ensures that the model accounts for the most impactful recent volatility trends, without incorporating too much noise from older data.
 
+**5.2) Bayesian Updating**
+
+In this project, Bayesian updating is used to dynamically estimate the mean and standard deviation (SD) of the market returns as new data becomes available. This approach is particularly useful in calculating the Cumulative Distribution Function (CDF) of the returns, which is a key step in assessing the probability of different market outcomes. By continually refining the estimates of the mean and SD, the model can better understand the distribution of returns and make more informed decisions.
+
+Why Use Bayesian Updating?
+The Bayesian approach is chosen here to provide a systematic method for updating the model's estimates of the mean and standard deviation of the data. This is crucial because financial markets are highly dynamic, and new data constantly flows in. Bayesian updating allows the model to adjust its estimates in light of new information, leading to more accurate and adaptive predictions.
+
+Specifically, the Bayesian method helps in calculating the mean (mu_posterior) and standard deviation (sigma_posterior) of the returns, which are essential inputs for calculating the CDF.
+
+**The Bayesian Formulas Used**
+
+The code employs Bayesian formulas to update the posterior mean and variance and to adjust the parameters of the Inverse-Gamma distribution, which models the uncertainty in volatility.
+
+Updating the Posterior Mean and Variance:
+
+The posterior mean (`mu_posterior`) and variance (`sigma_posterior_squared`) are updated using the following formulas:
+![Posterior Mean and Variance](Posterior_Mean&Variance.png)
+
+
 
 
 
