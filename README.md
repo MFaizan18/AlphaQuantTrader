@@ -481,6 +481,23 @@ class TradingEnv(gym.Env):
 * We define the maximum number of timesteps based on the length of the input data, setting a limit on how many steps the model can take in one episode.
 * Other variables like `balance`, `stock_owned`, `current_step`, `current_position`, `entry_price`, `trading_history`, `action_space`, and `observation_space` are initialized to track the agent's state.
 
+**Action and Observation Space:**
+
+* Action Space: Defined using `spaces.Discrete(3)`, representing three possible actions: `0` (Sell), `1` (Hold), and `2` (Buy).
+*Observation Space: Defined using `spaces.Box`, representing the financial state of the agent, including `balance, number of stocks owned, and various financial indicators (like adjusted close price, daily returns, volatility, Bayesian updated mean, standard deviation, and CDF).
+
+**Reset Method:** Resets the environment to its initial state, allowing the model to start fresh from a random point in the data, ensuring a diverse learning experience.
+
+**Step Method:**
+
+* Implements the core logic of the trading strategy. Depending on the chosen action (Buy, Hold, Sell), the method updates the balance, stock holdings, and calculates the reward.
+* Uses precomputed Bayesian standard deviation to adjust the reward based on risk, encouraging the agent to prefer less risky trades.
+* Tracks the trading history for later analysis and visualization.
+
+  **Observation Method (_get_observation):** Provides the current state of the environment as a `NumPy` array, capturing essential details required for decision-making by the RL agent.
+
+  **Render Method:** Provides visualization for the trading performance over time, plotting price, balance, and portfolio value, which is useful for debugging and understanding the agent’s decisions
+
 
 
 
