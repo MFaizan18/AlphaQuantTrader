@@ -315,6 +315,9 @@ Date         | Adj Close   | Daily Returns  | volatility | dynamic_window_sizes 
 26-02-2014   | 6238.80     | 0.00625        | 0.00734    | 11                   | 0.00248             | 0.00271           | 0.91803
 ```
 
+# 6) Model Training
+
+
 
 
 
