@@ -571,6 +571,16 @@ def predefined_strategy(env, num_steps):
 
     return trading_results
 
+def normalize_state(state):
+    state_df = pd.DataFrame([state], columns=feature_names)
+    print(f"State shape before normalization: {state_df.shape}")
+    normalized_state = scaler.transform(state_df)
+    print(f"State shape after normalization: {normalized_state.shape}")
+    return normalized_state.flatten()
+
+def store_experience(memory_buffer, experience):
+    memory_buffer.append(experience)
+
 def generate_initial_experiences(env, memory_buffer, num_steps):
     state = env.reset()
     state = normalize_state(state)
@@ -603,7 +613,6 @@ def setup_timesteps(num_episodes, dataset_size, min_percentage, max_percentage):
         timesteps_per_episode.append(timesteps)
     return timesteps_per_episode
 
-# setting up the no of episodes and no of episodes
 num_episodes = 600  # Number of episodes
 dataset_size = len(data)  # Size of the dataset
 min_percentage = 0.30 # Minimum percentage of the dataset size (30%)
@@ -612,7 +621,6 @@ num_timesteps = setup_timesteps(num_episodes, dataset_size, min_percentage, max_
 
 memory_buffer = deque(maxlen=100000)  # Set replay buffer size to 100000
   
-# Populate the buffer initially up to 20000
 initial_population_size = 20000 
 current_population = 0
 
