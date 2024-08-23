@@ -194,11 +194,36 @@ where:
 * `sigma_x_squared` is the variance of the observed data.
 * These formulas update the mean and variance by combining prior knowledge with new observations, weighted by their respective variances
 
+```python
+def update_posterior(x_i, mu_prior, sigma_prior_squared, sigma_x_squared):
+    """Update the posterior mean and variance."""
+    if sigma_x_squared == 0:
+        sigma_x_squared = 1e-6  # Assign a small value to sigma_x_squared
+    mu_posterior = ((sigma_prior_squared * x_i) + (sigma_x_squared * mu_prior)) / (sigma_prior_squared + sigma_x_squared)
+    sigma_posterior_squared = 1 / ((1 / sigma_prior_squared) + (1 / sigma_x_squared))
+    return mu_posterior, sigma_posterior_squared
+```
+
 **Updating the Inverse-Gamma Distribution Parameters:**
     
 The parameters of the Inverse-Gamma distribution, alpha_posterior and beta_posterior, are updated as follows:
 
 ![Alpha and BetacPosterior](Alpha&Beta_Posterior.png)
+
+where:
+* `alpha_prior` and beta_prior are the initial parameters for the Inverse-Gamma distribution.
+* These parameters are updated to reflect new evidence provided by each data point.
+* The Inverse-Gamma distribution is a natural choice for modeling the uncertainty in variance, making it ideal for refining volatility estimates.
+
+```python
+  def update_inverse_gamma(x_i, mu_posterior, alpha_prior, beta_prior, sigma_posterior_squared):
+    """Update the parameters of the Inverse-Gamma distribution."""
+    if sigma_posterior_squared == 0:
+        sigma_posterior_squared = 1e-6  # Assign a small value to sigma_posterior_squared
+    alpha_posterior = alpha_prior + 0.5
+    beta_posterior = beta_prior + (0.5 * ((x_i - mu_posterior) ** 2) / sigma_posterior_squared)
+    return alpha_posterior, beta_posterior
+```
 
 
 
