@@ -173,6 +173,12 @@ The posterior mean (`mu_posterior`) and variance (`sigma_posterior_squared`) are
 
 ![Posterior Mean and Variance](Posterior_Mean&Variance.png)
 
+where: 
+* `x_i` represents the new daily return data point.
+* `mu_prior` and `sigma_prior_squared` are the prior estimates for the mean and variance, respectively.
+* `sigma_x_squared` is the variance of the observed data.
+* These formulas update the mean and variance by combining prior knowledge with new observations, weighted by their respective variances
+
 
 
 
