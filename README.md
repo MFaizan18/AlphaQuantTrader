@@ -198,6 +198,8 @@ where:
     
 The parameters of the Inverse-Gamma distribution, alpha_posterior and beta_posterior, are updated as follows:
 
+![Alpha and BetacPosterior](Alpha&Beta_Posterior.png)
+
 
 
 
