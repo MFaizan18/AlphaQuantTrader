@@ -58,10 +58,10 @@ The preprocessing phase is crucial for preparing raw financial data into a form 
 
 **5.1) Data Acquisition**
 
-Historical stock price data for the National Stock Exchange of India (^NSEI) index is downloaded using the `yfinance` library. The dataset spans a 10-year period, from January 1, 2014, to July 31, 2024, and provides the foundation for training and testing the reinforcement learning model.
+Historical stock price data for the National Stock Exchange of India (^NSEI) index is downloaded using the `yfinance` library. The dataset spans a 14-year period, from January 1, 2010, to July 31, 2024, and provides the foundation for training and testing the reinforcement learning model.
 
 ```python
-data = yf.download('^NSEI', start='2014-01-01', end='2024-07-31', interval='1d')
+data = yf.download('^NSEI', start='2010-01-01', end='2024-07-31', interval='1d')
 ```
 Here's a glimpse of the data we're working with. The first 10 rows of the data are as follows:
 ```
