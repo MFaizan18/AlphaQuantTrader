@@ -67,16 +67,16 @@ Here's a glimpse of the data we're working with. The first 10 rows of the data a
 ```
 | Date       | Open         | High         | Low          | Close        | Adj Close   | Volume |
 |------------|--------------|--------------|--------------|--------------|-------------|--------|
-| 02-01-2014 | 6301.25      | 6358.299805  | 6211.299805  | 6221.149902  | 6221.149902 | 158100 |
-| 03-01-2014 | 6194.549805  | 6221.700195  | 6171.25      | 6211.149902  | 6211.149902 | 139000 |
-| 06-01-2014 | 6220.850098  | 6224.700195  | 6170.25      | 6191.450195  | 6191.450195 | 118300 |
-| 07-01-2014 | 6203.899902  | 6221.5       | 6144.75      | 6162.25      | 6162.25     | 138600 |
-| 08-01-2014 | 6178.049805  | 6192.100098  | 6160.350098  | 6174.600098  | 6174.600098 | 146900 |
-| 09-01-2014 | 6181.700195  | 6188.049805  | 6148.25      | 6168.350098  | 6168.350098 | 150100 |
-| 10-01-2014 | 6178.850098  | 6239.100098  | 6139.600098  | 6171.450195  | 6171.450195 | 159900 |
-| 13-01-2014 | 6189.549805  | 6288.200195  | 6189.549805  | 6272.75      | 6272.75     | 135000 |
-| 14-01-2014 | 6260.25      | 6280.350098  | 6234.149902  | 6241.850098  | 6241.850098 | 110200 |
-| 15-01-2014 | 6265.950195  | 6325.200195  | 6265.299805  | 6320.899902  | 6320.899902 | 145900 |
+| 04-01-2010 | 5200.899902  | 5238.450195  | 5167.100098  | 5232.200195  | 5232.200195 | 0      |
+| 05-01-2010 | 5277.149902  | 5288.350098  | 5242.399902  | 5277.899902  | 5277.899902 | 0      |
+| 06-01-2010 | 5278.149902  | 5310.850098  | 5260.049805  | 5281.799805  | 5281.799805 | 0      |
+| 07-01-2010 | 5281.799805  | 5302.549805  | 5244.75      | 5263.100098  | 5263.100098 | 0      |
+| 08-01-2010 | 5264.25      | 5276.75      | 5234.700195  | 5244.75      | 5244.75     | 0      |
+| 11-01-2010 | 5263.799805  | 5287.200195  | 5227.799805  | 5249.399902  | 5249.399902 | 0      |
+| 12-01-2010 | 5251.100098  | 5300.5       | 5200.950195  | 5210.399902  | 5210.399902 | 0      |
+| 13-01-2010 | 5212.600098  | 5239.200195  | 5169.549805  | 5233.950195  | 5233.950195 | 0      |
+| 14-01-2010 | 5234.5       | 5272.850098  | 5232.5       | 5259.899902  | 5259.899902 | 0      |
+| 15-01-2010 | 5259.899902  | 5279.850098  | 5242.450195  | 5252.200195  | 5252.200195 | 0      |
 ```
 And the last 10 rows of the data are as follows:
 
@@ -94,6 +94,7 @@ And the last 10 rows of the data are as follows:
 | 29-07-2024 | 24943.30078  | 24999.75     | 24774.59961  | 24836.09961  | 24836.09961 | 355000 |
 | 30-07-2024 | 24839.40039  | 24971.75     | 24798.65039  | 24857.30078  | 24857.30078 | 385000 |
 ```
+Note: The first 10 rows of the dataset have a volume value of 0 because no volume data was available when the data was downloaded. However, the volume column is not needed for the current analysis.
 
 **Split the data based on the date**
 
@@ -102,7 +103,10 @@ split_date = '2022-01-01'
 training_data = data[data.index < split_date].copy()
 test_data = data[data.index >= split_date].copy()
 ```
-This code segment divides the dataset into training and testing sets. Specifically, data from January 1, 2014, to December 31, 2021, is used as the training data to build and train the model. The remaining data, from January 1, 2022, to July 31, 2024, is reserved as test data to evaluate the model's performance on more recent, unseen data.
+This code segment divides the dataset into training, validation, and test sets. Specifically:
+* Training Data: Data from the beginning of the dataset up to December 31, 2021, is used as the training data to build and train the model.
+* Validation Data: Data from January 1, 2022, to December 31, 2022, is used as the validation data to tune the model's hyperparameters and prevent overfitting.
+* Test Data: Data from January 1, 2023, onwards is reserved as test data to evaluate the model's performance on more recent, unseen data.
 
 **Calculate daily returns on the training data**
 
