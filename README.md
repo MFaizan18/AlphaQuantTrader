@@ -99,9 +99,14 @@ Note: The first 10 rows of the dataset have a volume value of 0 because no volum
 **Split the data based on the date**
 
 ```python
-split_date = '2022-01-01'
-training_data = data[data.index < split_date].copy()
-test_data = data[data.index >= split_date].copy()
+train_end_date = '2021-12-31'
+val_end_date = '2022-12-31'
+test_start_date = '2023-01-01'
+
+# Split the data into training, validation, and test sets
+training_data = data[data.index <= train_end_date].copy()
+validation_data = data[(data.index > train_end_date) & (data.index <= val_end_date)].copy()
+test_data = data[data.index >= test_start_date].copy()
 ```
 This code segment divides the dataset into training, validation, and test sets. Specifically:
 * Training Data: Data from the beginning of the dataset up to December 31, 2021, is used as the training data to build and train the model.
