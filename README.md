@@ -93,7 +93,6 @@ And the last 10 rows of the data are as follows:
 | 49.592960  | 1.411373       | 1.962448    | 0.580896              | 2.765918    | 2.550630    | 2.501117    | -0.593796  | -0.454717  | -0.906079                 | 1          | 2.570008      |
 
 ```
-Note: The first 10 rows of the dataset have a volume value of 0 because no volume data was available when the data was downloaded. However, the volume column is not needed for the current analysis.
 
 **Split the data based on the date**
 
