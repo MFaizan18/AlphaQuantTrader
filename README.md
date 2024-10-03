@@ -19,7 +19,7 @@ At its core, the bot uses a DQN model to predict and execute the most profitable
 The bot integrates Bayesian updating techniques to adjust its risk management strategies dynamically, taking into account market volatility and uncertainty.
 
 **2.4) Historical Data Processing:**
-AlphaQuantTrader preprocesses and utilizes historical market data, including adjusted closing prices, daily returns, and volatility, to inform its trading decisions.
+AlphaQuantTrader preprocesses historical market data, utilizing various technical indicators, statistical measures, and volatility analysis to inform its trading decisions.
 
 **2.5) Portfolio Optimization:**
 Through reinforcement learning, the bot continuously seeks to optimize its portfolio by balancing risk and reward, aiming to maximize long-term gains.
@@ -36,21 +36,18 @@ Let's start by importimg the necessary libraries
 import yfinance as yf
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-from scipy.stats import norm
+from scipy.stats import norm, skew, kurtosis
+from sklearn.preprocessing import StandardScaler
 import gym
-from gym import spaces
+import numpy as np
+import pandas as pd
 import random
-from collections import deque, namedtuple
+from collections import namedtuple
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense
-from tensorflow.keras.layers import Dense, Conv1D, MaxPooling1D, Flatten, LSTM, TimeDistributed, Input, Bidirectional
-from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.layers import LSTM, Dense, Dropout, ReLU, Input
 from tensorflow.keras.regularizers import l2
-from tensorflow.keras.models import load_model
-from sklearn.preprocessing import StandardScaler
-import joblib
+import matplotlib.pyplot as plt
 ```
 ## 5) Preprocessing
 
