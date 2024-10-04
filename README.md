@@ -199,11 +199,42 @@ def determine_dynamic_window_size(volatility, min_window=5, max_window=20, epsil
 data.loc[:, 'volatility'] = calculate_fixed_window_volatility(data['Daily Returns'])
 data.loc[:, 'dynamic_window_sizes'] = determine_dynamic_window_size(data['volatility'])
 ```
-Building on the previous step where we calculated the dynamic_window_sizes, this section calculates the rolling variance of daily returns using an exponential moving average (EMA). The function `calculate_rolling_variance` applies the EMA to smooth out the variance over the dynamically adjusted window sizes we generated earlier.
+This code block begins by calculating the rolling volatility of daily returns using the `calculate_fixed_window_volatility` function. The function takes the daily returns and computes how volatile the market has been over the last 20 days, storing the results in the volatility column.
 
-The code then iterates through each data point and, for each row, uses the dynamic window size from the previous step to calculate the variance. This ensures that in more volatile market conditions, the rolling variance is calculated using a smaller, more focused window of recent data.
+Next, the `determine_dynamic_window_size` function adjusts the window size dynamically based on the calculated volatility. This adjustment ensures that during periods of high volatility, the analysis focuses on more recent data by using a smaller window size. The dynamically adjusted window sizes are then stored in the dynamic_window_sizes column.
 
-The calculated dynamic rolling variances are stored in a list and added as a new column in the dataset. This allows us to capture how market variability evolves, responding to changes in volatility over time.
+The calculated dynamic_window_size will later be used for more accurate volatility calculation in the subsequent steps.
+
+**5.5) Dynamic Rolling Variance Calculation**
+
+Building on the previous step where we generated dynamic_window_sizes, this section calculates the rolling variance of daily returns using an exponential moving average (EMA). The `calculate_rolling_variance` function applies EMA to the dynamically adjusted window sizes, ensuring that more recent data is emphasized during periods of high volatility.
+
+```python
+# Function to calculate rolling variance using exponential moving average (EMA)
+def calculate_rolling_variance(data, window_size):
+    return data.ewm(span=window_size).var()
+# Initialize a list to store dynamic rolling variances, pre-filled with NaN values
+dynamic_rolling_variances = [np.nan] * len(data)
+# Calculate dynamic rolling variances for each data point
+for idx, (_, row) in enumerate(data.iterrows()):
+    window_size = int(row['dynamic_window_sizes'])  # Get dynamic window size for this row
+    # Check if there are enough data points behind the current data point to create a window
+    if idx < window_size - 1:
+        continue  # Skip if not enough data points for rolling variance
+    # Calculate rolling variance for the previous 'window_size' rows including current index
+    start_idx = idx - window_size + 1
+    end_idx = idx + 1
+    data_window = data['Daily Returns'].iloc[start_idx : end_idx]
+    # Calculate rolling variance
+    dynamic_rolling_variance = calculate_rolling_variance(data_window, window_size).iloc[-1]
+    # Store the result in the list at the correct index
+    dynamic_rolling_variances[idx] = dynamic_rolling_variance
+# Add the dynamic rolling variances as a new column to your DataFrame
+data.loc[:, 'dynamic_rolling_variances'] = dynamic_rolling_variances
+```
+The code iterates through each data point, using the dynamic window size from the previous step to calculate the variance. This ensures that in more volatile market conditions, the rolling variance is calculated using a smaller, more focused window of recent data.
+
+The dynamically calculated rolling variances are stored in a list and added as a new column, `dynamic_rolling_variances`, in the dataset. This allows the model to better capture how market variability evolves, adapting its analysis based on changes in volatility over time.
 
 **Autocorrelation Function (ACF) and Partial Autocorrelation Function (PACF)**
 
