@@ -172,32 +172,38 @@ data['Kurtosis'] = data['Daily Returns'].rolling(window=20).apply(lambda x: kurt
 
 `data['Kurtosis']`: Computes the rolling kurtosis of daily returns over a 20-day window. Kurtosis measures the "tailedness" of the return distribution, indicating whether returns have more or fewer extreme values (fat tails or thin tails) compared to a normal distribution.
 
--
- **Volatility and Dynamic Window Size Calculation**
+ **5.4) Volatility and Dynamic Window Size Calculation**
 
 In this phase of the project, the aim is to calculate market volatility and adjust the analysis window size dynamically based on this volatility. These steps are crucial for capturing the changing market dynamics more accurately. To better understand market conditions, it's important to calculate how much prices fluctuate over time (volatility) and adjust the analysis window size accordingly. Below is the code that handles these calculations:
 
 ```python
+# Function to calculate fixed window rolling volatility (standard deviation)
 def calculate_fixed_window_volatility(data, window_size=20):
-    """Calculate rolling volatility with a fixed window size."""
     return data.rolling(window=window_size).std()
 
-def determine_dynamic_window_size(volatility, min_window=5, max_window=20):
-    """Determine dynamic window size based on volatility."""
-    inverse_volatility = 1 / volatility.replace(0, np.nan)  # Handle zero volatility
+# Function to determine dynamic window size based on volatility
+def determine_dynamic_window_size(volatility, min_window=5, max_window=20, epsilon=1e-8):
+    # Add epsilon to volatility to avoid division by zero or near-zero values
+    inverse_volatility = 1 / (volatility + epsilon)
+    
+    # Normalize the inverse volatility to scale between min and max window sizes
     normalized_window_size = (inverse_volatility - inverse_volatility.min()) / (inverse_volatility.max() - inverse_volatility.min())
+    
+    # Scale the normalized window size to the specified window range
     dynamic_window_size = normalized_window_size * (max_window - min_window) + min_window
-    return dynamic_window_size.fillna(min_window).astype(int)  # Fill NaNs and cast to int
+    
+    # Fill any NaN values with the minimum window size and convert to integers
+    return dynamic_window_size.fillna(min_window).astype(int)
 
-training_data_cleaned['volatility'] = calculate_fixed_window_volatility(training_data_cleaned['Daily Returns'])
-
-training_data_cleaned['dynamic_window_sizes'] = determine_dynamic_window_size(training_data_cleaned['volatility'])
+# Calculate volatility and dynamic window sizes
+data.loc[:, 'volatility'] = calculate_fixed_window_volatility(data['Daily Returns'])
+data.loc[:, 'dynamic_window_sizes'] = determine_dynamic_window_size(data['volatility'])
 ```
-This code block begins by calculating the rolling volatility of daily returns using the `calculate_fixed_window_volatility` function. The function takes the daily returns from training_data_cleaned and calculates how volatile the market has been over the last 20 days, storing the results in the volatility column.
+Building on the previous step where we calculated the dynamic_window_sizes, this section calculates the rolling variance of daily returns using an exponential moving average (EMA). The function `calculate_rolling_variance` applies the EMA to smooth out the variance over the dynamically adjusted window sizes we generated earlier.
 
-Next, the `determine_dynamic_window_size` function adjusts the window size dynamically based on the calculated volatility. This adjustment ensures that when the market is more volatile, the analysis focuses on more recent data by using a smaller window size. The dynamically adjusted window sizes are then stored in the `dynamic_window_sizes` column of the training_data_cleaned DataFrame.
+The code then iterates through each data point and, for each row, uses the dynamic window size from the previous step to calculate the variance. This ensures that in more volatile market conditions, the rolling variance is calculated using a smaller, more focused window of recent data.
 
-These calculations are crucial for ensuring that the model remains sensitive to market conditions, allowing it to adapt to changes in volatility over time.
+The calculated dynamic rolling variances are stored in a list and added as a new column in the dataset. This allows us to capture how market variability evolves, responding to changes in volatility over time.
 
 **Autocorrelation Function (ACF) and Partial Autocorrelation Function (PACF)**
 
@@ -211,6 +217,7 @@ Upon examining these plots, it was observed that the significant correlations an
 
 This selection ensures that the model accounts for the most impactful recent volatility trends, without incorporating too much noise from older data.
 
+-------------------------------------------
 **5.2) Bayesian Updating**
 
 In this project, Bayesian updating is used to dynamically estimate the mean and standard deviation (SD) of the market returns as new data becomes available. This approach is particularly useful in calculating the Cumulative Distribution Function (CDF) of the returns, which is a key step in assessing the probability of different market outcomes. By continually refining the estimates of the mean and SD, the model can better understand the distribution of returns and make more informed decisions.
