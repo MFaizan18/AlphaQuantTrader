@@ -104,7 +104,7 @@ train_end_date = '2021-12-31'
 val_end_date = '2022-12-31'
 test_start_date = '2023-01-01'
 ```
-**Data Preprocessing Functions**
+**5.2) Data Preprocessing Functions**
 
 ```python
 # Function to calculate daily returns
@@ -143,6 +143,18 @@ def calculate_bollinger_band_width(data, window=20, num_std_dev=2):
     lower_band = middle_band - (num_std_dev * std_dev)
     bollinger_band_width = upper_band - lower_band
     return bollinger_band_width
+
+# Calculate features on the entire dataset
+data['Daily Returns'] = calculate_daily_returns(data)
+data['RSI'] = calculate_rsi(data)
+data['MACD_Histogram'] = calculate_macd_histogram(data)
+data['VWAP'] = calculate_vwap(data)
+data['Bollinger_Band_Width'] = calculate_bollinger_band_width(data)
+data['50_day_MA'] = data['Close'].rolling(window=50).mean()
+data['20_day_MA'] = data['Close'].rolling(window=20).mean()
+data['9_day_MA'] = data['Close'].rolling(window=9).mean()
+data['Skewness'] = data['Daily Returns'].rolling(window=20).apply(lambda x: skew(x, bias=False))
+data['Kurtosis'] = data['Daily Returns'].rolling(window=20).apply(lambda x: kurtosis(x, bias=False))
 ```
 `calculate_daily_returns(data)`: Computes the daily percentage returns of the stock based on the closing prices, which are essential for understanding the day-to-day movement of the stock.
 
@@ -154,6 +166,15 @@ def calculate_bollinger_band_width(data, window=20, num_std_dev=2):
 
 `calculate_bollinger_band_width(data, window=20, num_std_dev=2)`: Computes the Bollinger Band Width, which measures the volatility of a stock by calculating the spread between the upper and lower Bollinger Bands, based on the moving average and standard deviation of adjusted closing prices over a rolling window.
 
+**5.3) Skewness and Kurtosis**
+
+`data['Skewness']`: Computes the rolling skewness of daily returns over a 20-day window. Skewness measures the asymmetry of the return distribution, providing insights into whether returns are skewed more to the left (negative skew) or right (positive skew).
+
+`data['Kurtosis']`: Computes the rolling kurtosis of daily returns over a 20-day window. Kurtosis measures the "tailedness" of the return distribution, indicating whether returns have more or fewer extreme values (fat tails or thin tails) compared to a normal distribution.
+
+
+
+----------------
  **Volatility and Dynamic Window Size Calculation**
 
 In this phase of the project, the aim is to calculate market volatility and adjust the analysis window size dynamically based on this volatility. These steps are crucial for capturing the changing market dynamics more accurately. To better understand market conditions, it's important to calculate how much prices fluctuate over time (volatility) and adjust the analysis window size accordingly. Below is the code that handles these calculations:
