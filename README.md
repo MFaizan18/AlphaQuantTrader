@@ -39,6 +39,7 @@ import numpy as np
 from scipy.stats import norm, skew, kurtosis
 from sklearn.preprocessing import StandardScaler
 import gym
+from gym import spaces
 import numpy as np
 import pandas as pd
 import random
@@ -46,6 +47,7 @@ from collections import namedtuple
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense, Dropout, ReLU, Input
+from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.regularizers import l2
 import matplotlib.pyplot as plt
 ```
@@ -97,31 +99,60 @@ And the last 10 rows of the data are as follows:
 **Split the data based on the date**
 
 ```python
+# Define the split dates
 train_end_date = '2021-12-31'
 val_end_date = '2022-12-31'
 test_start_date = '2023-01-01'
-
-# Split the data into training, validation, and test sets
-training_data = data[data.index <= train_end_date].copy()
-validation_data = data[(data.index > train_end_date) & (data.index <= val_end_date)].copy()
-test_data = data[data.index >= test_start_date].copy()
 ```
-This code segment divides the dataset into training, validation, and test sets. Specifically:
-* Training Data: Data from the beginning of the dataset up to December 31, 2021, is used as the training data to build and train the model.
-* Validation Data: Data from January 1, 2022, to December 31, 2022, is used as the validation data to tune the model's hyperparameters and prevent overfitting.
-* Test Data: Data from January 1, 2023, onwards is reserved as test data to evaluate the model's performance on more recent, unseen data.
-
-**Calculate daily returns on the training data**
+**Data Preprocessing Functions**
 
 ```python
-training_data['Daily Returns'] = training_data['Close'].pct_change()
-```
-To prepare the data for further analysis, daily returns are calculated on the training dataset. This is done by taking the percentage change in the closing prices, which helps in understanding the daily price movements.
+# Function to calculate daily returns
+def calculate_daily_returns(data):
+    return data['Close'].pct_change()
 
-```python
-training_data_cleaned = training_data[['Adj Close', 'Daily Returns']].copy()
+# Function to calculate RSI (Relative Strength Index)
+def calculate_rsi(data, window=14):
+    delta = data['Adj Close'].diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window=window).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=window).mean()
+    rs = gain / loss
+    rsi = 100 - (100 / (1 + rs))
+    return rsi
+
+# Function to calculate MACD Histogram
+def calculate_macd_histogram(data, short_window=12, long_window=26, signal_window=9):
+    short_ema = data['Close'].ewm(span=short_window, adjust=False).mean()
+    long_ema = data['Close'].ewm(span=long_window, adjust=False).mean()
+    macd_line = short_ema - long_ema
+    signal_line = macd_line.ewm(span=signal_window, adjust=False).mean()
+    macd_histogram = macd_line - signal_line
+    return macd_histogram
+
+# Function to calculate VWAP
+def calculate_vwap(data):
+    typical_price = (data['High'] + data['Low'] + data['Close']) / 3
+    vwap = (typical_price * data['Volume']).cumsum() / data['Volume'].cumsum()
+    return vwap
+
+# Function to calculate Bollinger Band Width
+def calculate_bollinger_band_width(data, window=20, num_std_dev=2):
+    middle_band = data['Adj Close'].rolling(window=window).mean()
+    std_dev = data['Adj Close'].rolling(window=window).std()
+    upper_band = middle_band + (num_std_dev * std_dev)
+    lower_band = middle_band - (num_std_dev * std_dev)
+    bollinger_band_width = upper_band - lower_band
+    return bollinger_band_width
 ```
- The training data is then cleaned to retain only the adjusted closing prices and the newly calculated daily returns. These will be essential for the upcoming model calculations and derivations.
+calculate_daily_returns(data): Computes the daily percentage returns of the stock based on the closing prices, which are essential for understanding the day-to-day movement of the stock.
+
+calculate_rsi(data, window=14): Calculates the Relative Strength Index (RSI), a momentum oscillator used to evaluate overbought or oversold conditions in the stock market. This is based on average gains and losses over a rolling window of 14 periods by default.
+
+calculate_macd_histogram(data, short_window=12, long_window=26, signal_window=9): Computes the Moving Average Convergence Divergence (MACD) histogram, which indicates the strength and direction of a stock’s momentum. The MACD is calculated using the difference between short-term and long-term exponential moving averages (EMAs).
+
+calculate_vwap(data): Calculates the Volume Weighted Average Price (VWAP), a trading benchmark that gives the average price a security has traded throughout the day, based on both volume and price.
+
+calculate_bollinger_band_width(data, window=20, num_std_dev=2): Computes the Bollinger Band Width, which measures the volatility of a stock by calculating the spread between the upper and lower Bollinger Bands, based on the moving average and standard deviation of adjusted closing prices over a rolling window.
 
  **Volatility and Dynamic Window Size Calculation**
 
