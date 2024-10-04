@@ -144,15 +144,15 @@ def calculate_bollinger_band_width(data, window=20, num_std_dev=2):
     bollinger_band_width = upper_band - lower_band
     return bollinger_band_width
 ```
-calculate_daily_returns(data): Computes the daily percentage returns of the stock based on the closing prices, which are essential for understanding the day-to-day movement of the stock.
+`calculate_daily_returns(data)`: Computes the daily percentage returns of the stock based on the closing prices, which are essential for understanding the day-to-day movement of the stock.
 
-calculate_rsi(data, window=14): Calculates the Relative Strength Index (RSI), a momentum oscillator used to evaluate overbought or oversold conditions in the stock market. This is based on average gains and losses over a rolling window of 14 periods by default.
+`calculate_rsi(data, window=14)`: Calculates the Relative Strength Index (RSI), a momentum oscillator used to evaluate overbought or oversold conditions in the stock market. This is based on average gains and losses over a rolling window of 14 periods by default.
 
-calculate_macd_histogram(data, short_window=12, long_window=26, signal_window=9): Computes the Moving Average Convergence Divergence (MACD) histogram, which indicates the strength and direction of a stock’s momentum. The MACD is calculated using the difference between short-term and long-term exponential moving averages (EMAs).
+`calculate_macd_histogram(data, short_window=12, long_window=26, signal_window=9)`: Computes the Moving Average Convergence Divergence (MACD) histogram, which indicates the strength and direction of a stock’s momentum. The MACD is calculated using the difference between short-term and long-term exponential moving averages (EMAs).
 
-calculate_vwap(data): Calculates the Volume Weighted Average Price (VWAP), a trading benchmark that gives the average price a security has traded throughout the day, based on both volume and price.
+`calculate_vwap(data)`: Calculates the Volume Weighted Average Price (VWAP), a trading benchmark that gives the average price a security has traded throughout the day, based on both volume and price.
 
-calculate_bollinger_band_width(data, window=20, num_std_dev=2): Computes the Bollinger Band Width, which measures the volatility of a stock by calculating the spread between the upper and lower Bollinger Bands, based on the moving average and standard deviation of adjusted closing prices over a rolling window.
+`calculate_bollinger_band_width(data, window=20, num_std_dev=2)`: Computes the Bollinger Band Width, which measures the volatility of a stock by calculating the spread between the upper and lower Bollinger Bands, based on the moving average and standard deviation of adjusted closing prices over a rolling window.
 
  **Volatility and Dynamic Window Size Calculation**
 
