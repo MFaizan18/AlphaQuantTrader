@@ -171,6 +171,7 @@ data['Kurtosis'] = data['Daily Returns'].rolling(window=20).apply(lambda x: kurt
 `data['Skewness']`: Computes the rolling skewness of daily returns over a 20-day window. Skewness measures the asymmetry of the return distribution, providing insights into whether returns are skewed more to the left (negative skew) or right (positive skew).
 
 `data['Kurtosis']`: Computes the rolling kurtosis of daily returns over a 20-day window. Kurtosis measures the "tailedness" of the return distribution, indicating whether returns have more or fewer extreme values (fat tails or thin tails) compared to a normal distribution.
+
 -
  **Volatility and Dynamic Window Size Calculation**
 
