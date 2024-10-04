@@ -213,22 +213,29 @@ Building on the previous step where we generated dynamic_window_sizes, this sect
 # Function to calculate rolling variance using exponential moving average (EMA)
 def calculate_rolling_variance(data, window_size):
     return data.ewm(span=window_size).var()
+
 # Initialize a list to store dynamic rolling variances, pre-filled with NaN values
 dynamic_rolling_variances = [np.nan] * len(data)
+
 # Calculate dynamic rolling variances for each data point
 for idx, (_, row) in enumerate(data.iterrows()):
     window_size = int(row['dynamic_window_sizes'])  # Get dynamic window size for this row
+
     # Check if there are enough data points behind the current data point to create a window
     if idx < window_size - 1:
         continue  # Skip if not enough data points for rolling variance
+
     # Calculate rolling variance for the previous 'window_size' rows including current index
     start_idx = idx - window_size + 1
     end_idx = idx + 1
     data_window = data['Daily Returns'].iloc[start_idx : end_idx]
+
     # Calculate rolling variance
     dynamic_rolling_variance = calculate_rolling_variance(data_window, window_size).iloc[-1]
+
     # Store the result in the list at the correct index
     dynamic_rolling_variances[idx] = dynamic_rolling_variance
+
 # Add the dynamic rolling variances as a new column to your DataFrame
 data.loc[:, 'dynamic_rolling_variances'] = dynamic_rolling_variances
 ```
