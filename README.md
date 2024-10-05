@@ -282,7 +282,9 @@ beta_prior = 2  # Prior beta for Inverse-Gamma
 These priors represent our initial assumptions about the market's behavior:
 
 `mu_prior` is the prior mean, set to 0.
+
 `kappa_prior` is the prior precision, set to 1, representing initial certainty.
+
 `alpha_prior` and `beta_prior` are parameters for the Inverse-Gamma distribution, governing our initial belief about the volatility.
 
 The code then employs Bayesian formulas to update the posterior mean and variance, as well as to adjust the parameters of the Inverse-Gamma distribution, which models the uncertainty in volatility.
