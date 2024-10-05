@@ -323,7 +323,6 @@ def update_posterior(x_i, mu_prior, kappa_prior, alpha_prior, beta_prior):
     
     return mu_posterior, kappa_posterior, alpha_posterior, beta_posterior
 ```
-
 **Posterior Variance Formula**
     
 After updating the posterior parameters, the variance of the mean is calculated. The variance reflects the uncertainty in our estimate of the mean and is based on the updated posterior parameters.
@@ -348,10 +347,11 @@ The expected variance (`sigma^2_expected`) is calculated by dividing the updated
     
     return sigma_posterior_squared
 ```
-------------------------------------------------
 **Iterating Bayesian Updates and Calculating the CDF**
 
 After updating the posterior mean and variance for each data point in the dataset, we now use these updated estimates to calculate the Cumulative Distribution Function (CDF). The CDF is important because it helps us assess the probability that a particular daily return will be below a certain threshold, giving insight into the likelihood of different market outcomes. By utilizing the updated posterior parameters, including the mean and variance, we can calculate the CDF for each daily return, which reflects the probability distribution based on new data.
+
+![Posterior_Variance](Posterior_Variance.png)
 
 ```python
 # Initialize lists with NaNs to match the length of f_training_data
