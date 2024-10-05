@@ -351,93 +351,42 @@ The expected variance (`sigma^2_expected`) is calculated by dividing the updated
 
 After updating the posterior mean and variance for each data point in the dataset, we now use these updated estimates to calculate the Cumulative Distribution Function (CDF). The CDF is important because it helps us assess the probability that a particular daily return will be below a certain threshold, giving insight into the likelihood of different market outcomes. By utilizing the updated posterior parameters, including the mean and variance, we can calculate the CDF for each daily return, which reflects the probability distribution based on new data.
 
-![Posterior_Variance](Posterior_Variance.png)
+![CDF](CDF.png)
 
 ```python
-# Initialize lists with NaNs to match the length of f_training_data
-updated_bayes_means = [np.nan] * len(f_training_data)
-updated_bayes_sds = [np.nan] * len(f_training_data)
-cdfs = [np.nan] * len(f_training_data)
-```
-First, three lists—`updated_bayes_means`, `updated_bayes_sds`, and `cdf`s—are initialized with NaN values. These lists are prepared to store the updated Bayesian means, standard deviations, and CDF values for each entry in f_training_data (after data cleaning and usual data handling processes). Initializing with NaN ensures that only valid calculations are stored, maintaining the integrity of the data throughout the process.
+cdfs = {}
 
-```python
-for idx, row in f_training_data.iterrows():
+# Loop through the data for Bayesian updates
+for i, row in data.iterrows():
     x_i = row['Daily Returns']
-    window_size = int(row['dynamic_window_sizes'])
     
-    # Check if there are enough data points behind the current data point to create a window
-    if idx < window_size:
-        continue
+    # Update posterior parameters
+    mu_posterior, kappa_posterior, alpha_posterior, beta_posterior = update_posterior(
+        x_i, mu_prior, kappa_prior, alpha_prior, beta_prior)
+    
+    # Calculate posterior variance of mu
+    sigma_posterior_squared = calculate_posterior_variance(kappa_posterior, alpha_posterior, beta_posterior)
+    
+    # Store posterior mean and standard deviation
+    updated_bayes_means[i] = mu_posterior
+    updated_bayes_sds[i] = np.sqrt(sigma_posterior_squared)
+    
+    # Calculate CDF
+    cdfs[i] = norm.cdf(x_i, mu_posterior, np.sqrt(sigma_posterior_squared))
+    
+    # Update priors for next iteration
+    mu_prior, kappa_prior, alpha_prior, beta_prior = mu_posterior, kappa_posterior, alpha_posterior, beta_posterior
 
-    # Calculate rolling variance using the dynamic window size
-    rolling_variance = calculate_rolling_variance(f_training_data['Daily Returns'].iloc[idx - window_size:idx + 1], window_size).iloc[-1]
-
-    if np.isnan(rolling_variance) or rolling_variance == 0:
-        print(f"Skipping index {idx} due to invalid rolling variance")
-        continue
-
-    sigma_x_squared = rolling_variance
-
-    # Update posterior mean and variance
-    mu_posterior, sigma_posterior_squared = update_posterior(x_i, mu_prior, sigma_prior_squared, sigma_x_squared)
-
-    # Update alpha and beta for the posterior Inverse-Gamma distribution
-    alpha_posterior, beta_posterior = update_inverse_gamma(x_i, mu_posterior, alpha_prior, beta_prior, sigma_posterior_squared)
-
-    # Store the updated mean and SD in the corresponding index
-    updated_bayes_means[idx] = mu_posterior
-    updated_bayes_sds[idx] = np.sqrt(sigma_posterior_squared)
+# Store the calculated CDF values in the DataFrame
+data.loc[:, 'CDF'] = data.index.map(cdfs)
 ```
-The loop iterates through each row in f_training_data, which contains the normalized adjusted close prices and their corresponding daily returns. For each data point x_i, it checks if there is enough historical data available to create a valid rolling window, as determined by dynamic_window_sizes. If the index `idx` is less than the required window_size, the loop continues to the next iteration, ensuring that the calculations are based on a sufficient data history. For valid windows, the code calculates the rolling variance using a dynamically determined window size (window_size). This rolling variance is critical for understanding how much the returns deviate over the chosen period. If the calculated rolling_variance is invalid (i.e., NaN or zero), it indicates that the data may not be suitable for analysis, so the iteration is skipped to avoid inaccuracies. Once a valid rolling_variance is computed, it is stored as `sigma_x_squared`, which represents the observed data variance for the current window. The code then updates the posterior mean (mu_posterior) and posterior variance (sigma_posterior_squared) using the update_posterior function. These updates incorporate the new data point x_i into the model, refining its understanding of the mean and variance of the returns. The parameters (alpha_posterior and beta_posterior) of the Inverse-Gamma distribution are also updated using the update_inverse_gamma function. This step adjusts the model’s confidence in its volatility estimates, accounting for the new data.
+In this section, the code iterates through each observation in the dataset. For each daily return (`x_i`), the posterior parameters for the mean (`mu_posterior`), precision (`kappa_posterior`), and variance-controlling parameters (`alpha_posterior`, `beta_posterior`) are updated using Bayesian updating, just like in the previous step. After updating the parameters, the posterior variance (`sigma_posterior_squared`) of the mean is calculated, giving us an updated sense of the uncertainty around the mean estimate.
 
-Finally, the updated posterior mean and standard deviation are stored in the updated_bayes_means and updated_bayes_sds lists for each index idx. Storing the standard deviation as the square root of sigma_posterior_squared makes it easier to interpret.
+Next, the CDF is computed using the updated posterior mean and variance. This step uses the `norm.cdf` function, which calculates the probability that a given return will be less than or equal to x_i based on the updated distribution. The CDF values represent these probabilities for each data point. After calculating the CDF, the priors are updated with the new posterior values, allowing the model to continuously adapt as more data comes in. This ensures that each new observation refines our estimates further, making the model more adaptive and accurate over time.
 
-**5.3) Calculating the Cumulative Distribution Function (CDF)**
+Finally, all the calculated CDF values are stored in a new column (`CDF`) in the data DataFrame, making it easy to access and use them for further analysis or decision-making.
 
-After updating the mean and standard deviation using the Bayesian formulas, these updated values are used to calculate the CDF:
-
-![Cumulative Distribution Function](CDF.png)
-
-where:
-
-* The CDF gives the probability that a return will be below a certain level, based on the updated mean and standard deviation.
-* Calculating the CDF allows the model to evaluate the likelihood of different market outcomes, which is critical for making informed trading decisions.
-
-```python
-cdf = norm.cdf(x_i, mu_posterior, np.sqrt(sigma_posterior_squared))
-cdfs[idx] = cdf
-```
-The `norm.cdf` function calculates the CDF of a normal distribution using the updated posterior mean (mu_posterior) and standard deviation (np.sqrt(sigma_posterior_squared)).
-x_i is the current daily return data point for which we are computing the CDF. The calculated CDF value represents the probability that the daily return is less than or equal to x_i under the
-updated normal distribution. This value is stored in the cdfs list at the current index idx. Storing the CDF allows the model to track the likelihood of different outcomes as it processes new data, which is crucial for making informed trading decisions.
-
-**Setting the Posterior as the New Prior for the Next Iteration**
-
-Once the CDF has been calculated and stored, the model prepares for the next iteration. The updated posterior values (mean, variance, and Inverse-Gamma parameters) are set as the new priors for the next data point:
-
-```python
-mu_prior, sigma_prior_squared, alpha_prior, beta_prior = mu_posterior, sigma_posterior_squared, alpha_posterior, beta_posterior
-```
-The updated posterior mean (mu_posterior) and variance (sigma_posterior_squared) replace the prior mean (mu_prior) and variance (sigma_prior_squared), respectively. Similarly, the updated parameters of the Inverse-Gamma distribution (alpha_posterior and beta_posterior) become the new priors (alpha_prior and beta_prior). This step is essential for Bayesian updating as it allows the model to incorporate the most recent information into its future estimates. By using the posterior values as the new priors, the model effectively "learns" from the latest data point and adjusts its predictions accordingly.
-
-By calculating the CDF and updating the priors with the latest posterior values, the model continuously adapts to new data, maintaining an up-to-date and accurate understanding of market behavior. This iterative Bayesian process ensures that the model remains robust and responsive to changes, providing a dynamic framework for effective decision-making in a volatile market environment.
-
-Lets print the first 10 rows of the final dataset: 
-
-```
-Date         | Adj Close   | Daily Returns  | volatility | dynamic_window_sizes | updated_bayes_means | updated_bayes_sds | CDF
-------------------------------------------------------------------------------------------------------------------------------
-13-02-2014   | 6001.10     | -0.01363       | 0.00769    | 10                   | -0.01363            | 0.00753           | 0.49996
-14-02-2014   | 6048.35     | 0.00787        | 0.00787    | 10                   | -0.00348            | 0.00547           | 0.98106
-18-02-2014   | 6127.10     | 0.01302        | 0.00833    | 10                   | 0.00088             | 0.00469           | 0.99517
-19-02-2014   | 6152.75     | 0.00419        | 0.00840    | 10                   | 0.00176             | 0.00402           | 0.72676
-20-02-2014   | 6091.45     | -0.00996       | 0.00852    | 10                   | -0.00015            | 0.00367           | 0.00379
-21-02-2014   | 6155.45     | 0.01051        | 0.00895    | 9                    | 0.00123             | 0.00343           | 0.99659
-24-02-2014   | 6186.10     | 0.00498        | 0.00867    | 9                    | 0.00175             | 0.00318           | 0.84477
-25-02-2014   | 6200.05     | 0.00226        | 0.00725    | 11                   | 0.00183             | 0.00293           | 0.55789
-26-02-2014   | 6238.80     | 0.00625        | 0.00734    | 11                   | 0.00248             | 0.00271           | 0.91803
-```
+--------------------------------------------------------
 
 # 6) Model Training
 
