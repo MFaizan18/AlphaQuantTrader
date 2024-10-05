@@ -386,8 +386,6 @@ Next, the CDF is computed using the updated posterior mean and variance. This st
 
 Finally, all the calculated CDF values are stored in a new column (`CDF`) in the data DataFrame, making it easy to access and use them for further analysis or decision-making.
 
---------------------------------------------------------
-
 # 6) Model Training
 
 In this section, we move into the model training phase of our project, where we aim to develop a strategy for trading based on the financial data we have preprocessed. To achieve this, we use reinforcement learning (RL), a powerful machine learning approach that allows our model to learn from its own actions in a simulated environment. One of the most effective tools for developing RL models is the OpenAI Gym library. OpenAI Gym provides a collection of environments — computational representations of problems — that standardize how agents (our models) interact with these environments. This allows us to build, test, and compare various RL strategies effectively.
@@ -396,6 +394,7 @@ In this section, we move into the model training phase of our project, where we 
 
 In the context of reinforcement learning, an environment is essentially a problem that the agent (our trading model) tries to solve. It defines the state space (all possible situations the agent might encounter), the action space (all possible moves the agent can make), and the reward structure (how good or bad each action is, given the current state). The OpenAI Gym library provides a convenient framework for building these environments and includes many pre-built environments for classic RL problems like cart-pole balancing, playing video games, and more. However, since our problem is a custom financial trading scenario, we need to create a custom environment that reflects the dynamics of trading in a financial market.
 
+-----------------------------------------------------------------------------------------------------------------
 **6.2) Creating a Custom Trading Environment**
 
 To model our trading scenario, we define a custom environment class named TradingEnv by extending the gym.Env class from OpenAI Gym. This custom environment will simulate the process of trading a financial asset, allowing our RL model to interact with it by buying, holding, or selling based on the available data.
