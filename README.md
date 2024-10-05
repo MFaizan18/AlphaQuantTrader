@@ -331,9 +331,9 @@ After updating the posterior parameters, the variance of the mean is calculated.
 ![Alpha and BetacPosterior](Alpha&Beta_Posterior.png)
 
 Where:
-`beta_posterior` and `alpha_posterior` are the updated parameters from the previous step.
+* `beta_posterior` and `alpha_posterior` are the updated parameters from the previous step.
 
-`kappa_posterior` is the updated precision, which influences the certainty of the mean.
+* `kappa_posterior` is the updated precision, which influences the certainty of the mean.
   
 The expected variance (`sigma^2_expected`) is calculated by dividing the updated posterior beta by the updated posterior alpha minus 1. The posterior variance of the mean (`sigma^2_posterior`) is then derived by dividing the expected variance by the updated precision (`kappa_posterior`). A higher precision results in lower variance, indicating that the model has more certainty about its mean estimate as new data is processed.
 
