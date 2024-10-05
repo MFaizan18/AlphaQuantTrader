@@ -289,10 +289,9 @@ These priors represent our initial assumptions about the market's behavior:
 
 The code then employs Bayesian formulas to update the posterior mean and variance, as well as to adjust the parameters of the Inverse-Gamma distribution, which models the uncertainty in volatility.
 
-------------------------
 **Updating the Posterior Mean and Variance:**
 
-The posterior mean (`mu_posterior`) and variance (`sigma_posterior_squared`) are updated using the following formulas:
+The posterior mean (`mu_posterior`) and variance (`sigma²`) are updated using the following formulas:
 
 ![Posterior Mean and Variance](Posterior_Mean&Variance.png)
 
