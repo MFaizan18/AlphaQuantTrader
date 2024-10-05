@@ -295,7 +295,8 @@ The posterior mean (`mu_posterior`) and variance (`sigma²`) are updated using t
 
 ![Posterior Mean and Variance](Posterior_Mean&Variance.png)
 
-where: 
+---------------------------------------
+where
 * `x_i` represents the new daily return data point.
 * `mu_prior` and `sigma_prior_squared` are the prior estimates for the mean and variance, respectively.
 * `sigma_x_squared` is the variance of the observed data.
