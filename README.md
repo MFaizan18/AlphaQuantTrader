@@ -290,7 +290,7 @@ These priors represent our initial assumptions about the market's behavior:
 The code then employs Bayesian formulas to update the posterior mean and variance, as well as to adjust the parameters of the Inverse-Gamma distribution, which models the uncertainty in volatility.
 
 --------------------------------------------
-**Updating the Posterior Mean and Variance:**
+**Updating the Posterior Mean, Precision, and Variance**
 
 The posterior mean (`mu_posterior`) and variance (`sigma²`) are updated using the following formulas:
 
@@ -303,7 +303,7 @@ Where:
   
 * `alpha_prior` and `beta_prior` are the prior parameters governing volatility.
   
-The formulas update the mean and variance by combining prior knowledge with new observations, weighted by their respective parameters. This Bayesian framework ensures that the model continuously refines its understanding of both the mean and volatility based on new data.
+These formulas describe how the posterior estimates are updated. The posterior mean (`mu_posterior`) is a weighted combination of the prior mean and the new data point `x_i`, where the weights are determined by the precision (`kappa`). The posterior precision (`kappa_posterior`) increases by 1 with each new observation, reflecting greater certainty in the estimate of the mean. `Alpha` increases by 0.5 with each observation, and beta adjusts based on how much the new observation deviates from the `prior mean`, weighted by the prior precision. These updates ensure that the model incorporates new information while retaining prior knowledge.
 
 --------------------------------------------
 ```python
@@ -324,28 +324,29 @@ def update_posterior(x_i, mu_prior, kappa_prior, alpha_prior, beta_prior):
     return mu_posterior, kappa_posterior, alpha_posterior, beta_posterior
 ```
 
-**Updating the Inverse-Gamma Distribution Parameters:**
+**Posterior Variance Formula:**
     
-The parameters of the Inverse-Gamma distribution, alpha_posterior and beta_posterior, are updated as follows:
+After updating the posterior parameters, the variance of the mean is calculated. The variance reflects the uncertainty in our estimate of the mean and is based on the updated posterior parameters.
 
 ![Alpha and BetacPosterior](Alpha&Beta_Posterior.png)
 
 Where:
+`beta_posterior` and `alpha_posterior` are the updated parameters from the previous step.
 
-* `alpha_prior` and `beta_prior` are the initial parameters of the Inverse-Gamma distribution.
+`kappa_posterior` is the updated precision, which influences the certainty of the mean.
   
-* These updates reflect the new evidence provided by each data point.
-  
-The Inverse-Gamma distribution is ideal for modeling the uncertainty in variance, making it a natural choice for refining volatility estimates.
+The expected variance (`sigma^2_expected`) is calculated by dividing the updated posterior beta by the updated posterior alpha minus 1. The posterior variance of the mean (`sigma^2_posterior`) is then derived by dividing the expected variance by the updated precision (`kappa_posterior`). A higher precision results in lower variance, indicating that the model has more certainty about its mean estimate as new data is processed.
 
 ```python
-  def update_inverse_gamma(x_i, mu_posterior, alpha_prior, beta_prior, sigma_posterior_squared):
-    """Update the parameters of the Inverse-Gamma distribution."""
-    if sigma_posterior_squared == 0:
-        sigma_posterior_squared = 1e-6  # Assign a small value to sigma_posterior_squared
-    alpha_posterior = alpha_prior + 0.5
-    beta_posterior = beta_prior + (0.5 * ((x_i - mu_posterior) ** 2) / sigma_posterior_squared)
-    return alpha_posterior, beta_posterior
+  def calculate_posterior_variance(kappa_posterior, alpha_posterior, beta_posterior):
+    """Calculate the posterior variance of mu."""
+    # Expected variance (sigma^2)
+    expected_variance = beta_posterior / (alpha_posterior - 1)
+    
+    # Posterior variance of mu
+    sigma_posterior_squared = expected_variance / kappa_posterior
+    
+    return sigma_posterior_squared
 ```
 
 **Iterative Bayesian Updating for Mean and Standard Deviation**
