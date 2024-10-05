@@ -296,7 +296,7 @@ The code then employs Bayesian formulas to update the posterior mean and varianc
 
 The posterior mean (`mu_posterior`) and variance (`sigma²`) are updated using the following formulas:
 
-![Posterior_Mean, Precision_and_Variance](Posterior_Mean, Precision_and_Variance.png)
+![Posterior Mean, Precision and Variance](Posterior_Mean_Precision_and_Variance.png)
 
 Where:
 * `x_i` represents the new daily return data point.
