@@ -289,6 +289,7 @@ These priors represent our initial assumptions about the market's behavior:
 
 The code then employs Bayesian formulas to update the posterior mean and variance, as well as to adjust the parameters of the Inverse-Gamma distribution, which models the uncertainty in volatility.
 
+--------------------------------------------
 **Updating the Posterior Mean and Variance:**
 
 The posterior mean (`mu_posterior`) and variance (`sigma²`) are updated using the following formulas:
@@ -306,13 +307,21 @@ The formulas update the mean and variance by combining prior knowledge with new 
 
 --------------------------------------------
 ```python
-def update_posterior(x_i, mu_prior, sigma_prior_squared, sigma_x_squared):
-    """Update the posterior mean and variance."""
-    if sigma_x_squared == 0:
-        sigma_x_squared = 1e-6  # Assign a small value to sigma_x_squared
-    mu_posterior = ((sigma_prior_squared * x_i) + (sigma_x_squared * mu_prior)) / (sigma_prior_squared + sigma_x_squared)
-    sigma_posterior_squared = 1 / ((1 / sigma_prior_squared) + (1 / sigma_x_squared))
-    return mu_posterior, sigma_posterior_squared
+def update_posterior(x_i, mu_prior, kappa_prior, alpha_prior, beta_prior):
+    """Update posterior parameters using the Normal-Inverse-Gamma conjugate prior."""
+    # Update kappa
+    kappa_posterior = kappa_prior + 1
+    
+    # Update mu
+    mu_posterior = (kappa_prior * mu_prior + x_i) / kappa_posterior
+    
+    # Update alpha
+    alpha_posterior = alpha_prior + 0.5
+    
+    # Update beta
+    beta_posterior = beta_prior + (kappa_prior * (x_i - mu_prior) ** 2) / (2 * kappa_posterior)
+    
+    return mu_posterior, kappa_posterior, alpha_posterior, beta_posterior
 ```
 
 **Updating the Inverse-Gamma Distribution Parameters:**
@@ -321,10 +330,13 @@ The parameters of the Inverse-Gamma distribution, alpha_posterior and beta_poste
 
 ![Alpha and BetacPosterior](Alpha&Beta_Posterior.png)
 
-where:
-* `alpha_prior` and beta_prior are the initial parameters for the Inverse-Gamma distribution.
-* These parameters are updated to reflect new evidence provided by each data point.
-* The Inverse-Gamma distribution is a natural choice for modeling the uncertainty in variance, making it ideal for refining volatility estimates.
+Where:
+
+* `alpha_prior` and `beta_prior` are the initial parameters of the Inverse-Gamma distribution.
+  
+* These updates reflect the new evidence provided by each data point.
+  
+The Inverse-Gamma distribution is ideal for modeling the uncertainty in variance, making it a natural choice for refining volatility estimates.
 
 ```python
   def update_inverse_gamma(x_i, mu_posterior, alpha_prior, beta_prior, sigma_posterior_squared):
