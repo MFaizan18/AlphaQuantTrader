@@ -306,7 +306,6 @@ Where:
   
 These formulas describe how the posterior estimates are updated. The posterior mean (`mu_posterior`) is a weighted combination of the prior mean and the new data point `x_i`, where the weights are determined by the precision (`kappa`). The posterior precision (`kappa_posterior`) increases by 1 with each new observation, reflecting greater certainty in the estimate of the mean. `Alpha` increases by 0.5 with each observation, and beta adjusts based on how much the new observation deviates from the `prior mean`, weighted by the prior precision. These updates ensure that the model incorporates new information while retaining prior knowledge.
 
---------------------------------------------
 ```python
 def update_posterior(x_i, mu_prior, kappa_prior, alpha_prior, beta_prior):
     """Update posterior parameters using the Normal-Inverse-Gamma conjugate prior."""
