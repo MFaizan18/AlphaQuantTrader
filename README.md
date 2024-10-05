@@ -255,15 +255,19 @@ Upon examining these plots, it was observed that the significant correlations an
 
 This selection ensures that the model accounts for the most impactful recent volatility trends, without incorporating too much noise from older data.
 
--------------------------------------------
-**5.2) Bayesian Updating**
+**5.6) Bayesian Updating with Normal-Inverse-Gamma**
 
-In this project, Bayesian updating is used to dynamically estimate the mean and standard deviation (SD) of the market returns as new data becomes available. This approach is particularly useful in calculating the Cumulative Distribution Function (CDF) of the returns, which is a key step in assessing the probability of different market outcomes. By continually refining the estimates of the mean and SD, the model can better understand the distribution of returns and make more informed decisions.
+In this project, Bayesian updating continues to play a key role in dynamically estimating the mean and variance of market returns. This section introduces the `Normal-Inverse-Gamma` conjugate prior, which allows us to update our estimates of the mean and variance efficiently. The Normal-Inverse-Gamma distribution is especially useful for modeling uncertainty in both the mean and variance of the returns.
 
-Why Use Bayesian Updating?
-The Bayesian approach is chosen here to provide a systematic method for updating the model's estimates of the mean and standard deviation of the data. This is crucial because financial markets are highly dynamic, and new data constantly flows in. Bayesian updating allows the model to adjust its estimates in light of new information, leading to more accurate and adaptive predictions.
+Just as in the previous steps, this iterative Bayesian process ensures that the model adapts to incoming data, making it more robust and flexible in a dynamic market environment. By continuously updating the parameters, we can refine our understanding of market returns and make more informed decisions.
 
-Specifically, the Bayesian method helps in calculating the mean (mu_posterior) and standard deviation (sigma_posterior) of the returns, which are essential inputs for calculating the CDF.
+Why Use the Normal-Inverse-Gamma?
+The Normal-Inverse-Gamma conjugate prior is chosen because it allows for simultaneous updating of both the mean and variance. This is crucial in financial markets, where both the average returns and volatility evolve over time. This Bayesian approach updates the posterior estimates of the mean (mu), the variance (sigma²), and the parameters governing these distributions, leading to more accurate and adaptive predictions.
+
+Specifically, the Bayesian method helps in calculating:
+
+`Posterior mean (mu_posterior)`: Updated based on new daily return data.
+`Posterior variance (sigma²)`: Calculated using the updated posterior parameters.
 
 **The Bayesian Formulas Used**
 
@@ -271,19 +275,19 @@ The code starts by defining initial priors:
 
 ```python
 mu_prior = 0  # Prior mean
-sigma_prior_squared = 1  # Prior variance
+kappa_prior = 1  # Prior precision factor
 alpha_prior = 3  # Prior alpha for Inverse-Gamma
 beta_prior = 2  # Prior beta for Inverse-Gamma
 ```
-These priors represent the model's initial assumptions about the market's behavior:
+These priors represent our initial assumptions about the market's behavior:
 
 `mu_prior` is the prior mean, set to 0.
-`sigma_prior_squared` is the prior variance, set to 1.
-
-These initial values are crucial for the Bayesian formulas that follow.
+`kappa_prior` is the prior precision, set to 1, representing initial certainty.
+`alpha_prior` and `beta_prior` are parameters for the Inverse-Gamma distribution, governing our initial belief about the volatility.
 
 The code then employs Bayesian formulas to update the posterior mean and variance, as well as to adjust the parameters of the Inverse-Gamma distribution, which models the uncertainty in volatility.
 
+------------------------
 **Updating the Posterior Mean and Variance:**
 
 The posterior mean (`mu_posterior`) and variance (`sigma_posterior_squared`) are updated using the following formulas:
