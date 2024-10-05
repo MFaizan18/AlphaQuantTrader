@@ -268,6 +268,7 @@ The Normal-Inverse-Gamma conjugate prior is chosen because it allows for simulta
 Specifically, the Bayesian method helps in calculating:
 
 `Posterior mean (mu_posterior)`: Updated based on new daily return data.
+
 `Posterior variance (sigma²)`: Calculated using the updated posterior parameters.
 
 **The Bayesian Formulas Used**
