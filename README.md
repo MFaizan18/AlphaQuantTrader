@@ -295,13 +295,16 @@ The posterior mean (`mu_posterior`) and variance (`sigma²`) are updated using t
 
 ![Posterior Mean and Variance](Posterior_Mean&Variance.png)
 
----------------------------------------
-where
+Where:
 * `x_i` represents the new daily return data point.
-* `mu_prior` and `sigma_prior_squared` are the prior estimates for the mean and variance, respectively.
-* `sigma_x_squared` is the variance of the observed data.
-* These formulas update the mean and variance by combining prior knowledge with new observations, weighted by their respective variances
+  
+* `mu_prior` and `kappa_prior` are the prior estimates for the mean and precision.
+  
+* `alpha_prior` and `beta_prior` are the prior parameters governing volatility.
+  
+The formulas update the mean and variance by combining prior knowledge with new observations, weighted by their respective parameters. This Bayesian framework ensures that the model continuously refines its understanding of both the mean and volatility based on new data.
 
+--------------------------------------------
 ```python
 def update_posterior(x_i, mu_prior, sigma_prior_squared, sigma_x_squared):
     """Update the posterior mean and variance."""
