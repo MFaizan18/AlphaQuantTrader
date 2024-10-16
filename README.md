@@ -435,6 +435,13 @@ val_data['Date'] = pd.to_datetime(val_data['Date'])
 ```
 The features to be normalized include values such as adjusted close prices, technical indicators like MACD Histogram, and statistical measures like skewness. However, we intentionally avoid normalizing RSI and CDF because RSI is a bounded ratio between 0 and 100, and CDF represents probabilities, both of which are already on a standard scale. The dataset is split into training data (up to the end of 2021) and validation data (2022). We fit a StandardScaler on the training data, ensuring both the training and validation sets are scaled similarly. Lastly, the indices are reset and converted to datetime format, making the data ready for use in the next steps.
 
+**6.2) Creating a Custom Trading Environment**
+
+To model our trading scenario, we define a custom environment class named TradingEnv by extending the gym.Env class from OpenAI Gym. This custom environment will simulate the process of trading a financial asset, allowing our RL model to interact with it by buying, holding, or selling based on the available data.
+
+Let's walk through the custom environment, breaking it down into separate parts with explanations.
+
+**Initialization `(__init__)`**
 
 
 
@@ -449,151 +456,7 @@ The features to be normalized include values such as adjusted close prices, tech
 
 To model our trading scenario, we define a custom environment class named TradingEnv by extending the gym.Env class from OpenAI Gym. This custom environment will simulate the process of trading a financial asset, allowing our RL model to interact with it by buying, holding, or selling based on the available data.
 
-```python
-class TradingEnv(gym.Env):
-    def __init__(self, data, initial_balance=1000000, transaction_cost=0.0000135, max_num_timesteps = len(data) ):
-        super(TradingEnv, self).__init__()
 
-        self.data = data
-        self.initial_balance = initial_balance
-        self.transaction_cost = transaction_cost
-        # Calculate max_num_timesteps dynamically based on the length of the data
-        self.max_num_timesteps = max_num_timesteps
-
-        self.balance = self.initial_balance
-        self.stock_owned = 0
-        self.current_step = 0
-        self.current_position = None
-        self.entry_price = None
-
-        self.trading_history = []
-
-        self.action_space = spaces.Discrete(3)
-
-        self.observation_space = spaces.Box(
-            low=0, high=np.inf, shape=(8,), dtype=np.float32)
-
-    def reset(self):
-        self.balance = self.initial_balance
-        self.stock_owned = 0
-      #  Calculate a random starting point with enough data left for max_num_timesteps
-        self.current_step = np.random.randint(0, len(self.data) - self.max_num_timesteps + 1)
-        self.current_position = None
-        self.entry_price = None
-        self.trading_history = []
-        return normalize_state(self._get_observation())
-
-    def step(self, action):
-        if self.current_step >= len(self.data):
-            raise ValueError("Current step exceeds the length of the data")
-        
-        if action not in [0, 1, 2]:
-            raise ValueError("Invalid action")
-
-        current_data = self.data.iloc[self.current_step]
-        current_price = current_data['Adj Close']
-        reward = 0
-    
-        if action == 2:  # Buy
-            if self.current_position is None or self.current_position == 'sell':
-                self.current_position = 'buy'
-                self.entry_price = current_price
-                shares_to_buy = (self.balance * 0.15) / (current_price * (1 + self.transaction_cost))
-                self.stock_owned += shares_to_buy
-                self.balance -= shares_to_buy * current_price * (1 + self.transaction_cost)
-                reward = 0
-            else:
-                self.current_position = 'hold'
-                previous_price = self.data.iloc[self.current_step - 1]['Adj Close']
-                reward = current_price - previous_price
-    
-        elif action == 1:  # Hold
-            if self.current_position == 'buy' or self.current_position == 'hold':
-                previous_price = self.data.iloc[self.current_step - 1]['Adj Close']
-                reward = current_price - previous_price
-    
-        elif action == 0:  # Sell
-            if self.current_position == 'buy' or self.current_position == 'hold':
-                reward = current_price - self.entry_price
-                self.balance += self.stock_owned * current_price * (1 - self.transaction_cost)
-                self.stock_owned = 0
-                self.entry_price = None
-                self.current_position = 'sell'
-            else:
-                reward = -0.5
-                
-        
-        # Use the precomputed Bayesian standard deviation
-        bayes_std = self.data['updated_bayes_sds'].iloc[self.current_step]
-
-        # Avoid division by zero and apply scaling factor
-        scaling_factor = 0.005  # scaling factor
-        if bayes_std == 0 or np.isnan(bayes_std):
-            risk_adjusted_reward = reward
-        else:
-            risk_adjusted_reward = (reward / (bayes_std + 1e-6)) * scaling_factor
-
-        
-        self.current_step += 1
-        done = self.current_step >= len(self.data) - 1
-        if done:
-            self.balance += self.stock_owned * current_price * (1 - self.transaction_cost)
-            self.stock_owned = 0
-
-        portfolio_value = self.balance + self.stock_owned * current_price
-
-        self.trading_history.append({
-            'step': self.current_step,
-            'current_price': current_price,
-            'balance': self.balance,
-            'portfolio_value': portfolio_value
-        })
-        
-        # Return the raw state, normalization will be done outside this method
-        raw_state = self._get_observation()
-
-        return raw_state, risk_adjusted_reward, done, {"portfolio_value": portfolio_value}
-
-    def _get_observation(self):
-        if self.current_step >= len(self.data):
-            raise ValueError("Current step exceeds the length of the data")
-        
-        current_data = self.data.iloc[self.current_step]
-        return np.array([
-            self.balance,
-            self.stock_owned,
-            current_data['Adj Close'],
-            current_data['Daily Returns'],
-            current_data['volatility'],
-            current_data['updated_bayes_means'],
-            current_data['updated_bayes_sds'],
-            current_data['CDF']
-        ], dtype=np.float32)
-
-    def render(self, mode='human', close=False):
-        if close:
-            plt.close()
-            return
-
-        df = pd.DataFrame(self.trading_history)
-        df.set_index('step', inplace=True)
-
-        fig, ax = plt.subplots(3, 1, figsize=(12, 10), sharex=True)
-
-        ax[0].plot(df.index, df['current_price'], label='Price')
-        ax[0].set_ylabel('Price')
-        ax[0].legend()
-
-        ax[1].plot(df.index, df['balance'], label='Balance')
-        ax[1].set_ylabel('Balance')
-        ax[1].legend()
-
-        ax[2].plot(df.index, df['portfolio_value'], label='Portfolio Value')
-        ax[2].set_ylabel('Portfolio Value')
-        ax[2].set_xlabel('Step')
-        ax[2].legend()
-
-        plt.show()
 ```
 
 **Initialization (__init__ method): This sets up the initial conditions of our trading environment:**
