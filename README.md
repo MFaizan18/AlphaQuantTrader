@@ -435,7 +435,7 @@ val_data['Date'] = pd.to_datetime(val_data['Date'])
 ```
 The features to be normalized include values such as adjusted close prices, technical indicators like MACD Histogram, and statistical measures like skewness. However, we intentionally avoid normalizing RSI and CDF because RSI is a bounded ratio between 0 and 100, and CDF represents probabilities, both of which are already on a standard scale. The dataset is split into training data (up to the end of 2021) and validation data (2022). We fit a StandardScaler on the training data, ensuring both the training and validation sets are scaled similarly. Lastly, the indices are reset and converted to datetime format, making the data ready for use in the next steps.
 
-**6.2) Creating a Custom Trading Environment**
+**6.3) Creating a Custom Trading Environment**
 
 To model our trading scenario, we define a custom environment class named TradingEnv by extending the gym.Env class from OpenAI Gym. This custom environment will simulate the process of trading a financial asset, allowing our RL model to interact with it by buying, holding, or selling based on the available data.
 
@@ -826,166 +826,108 @@ def render(self, mode='human'):
     hold_prices = [price for price, action in zip(prices, actions) if action == 
 ```
 
+**6.4) SumTree Class for Prioritized Experience Replay**
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
------------------------------------------------------------------------------------------------------------------
-**6.2) Creating a Custom Trading Environment**
-
-To model our trading scenario, we define a custom environment class named TradingEnv by extending the gym.Env class from OpenAI Gym. This custom environment will simulate the process of trading a financial asset, allowing our RL model to interact with it by buying, holding, or selling based on the available data.
-
-
-```
-
-**Initialization (__init__ method): This sets up the initial conditions of our trading environment:**
-
-* The initial balance is set to $1,000,000.
-* The transaction cost per trade is set to 0.0000135, which is typical for financial markets.
-* We define the maximum number of timesteps based on the length of the input data, setting a limit on how many steps the model can take in one episode.
-* Other variables like `balance`, `stock_owned`, `current_step`, `current_position`, `entry_price`, `trading_history`, `action_space`, and `observation_space` are initialized to track the agent's state.
-
-**Action and Observation Space:**
-
-* Action Space: Defined using `spaces.Discrete(3)`, representing three possible actions: `0` (Sell), `1` (Hold), and `2` (Buy).
-* Observation Space: Defined using `spaces.Box`, representing the financial state of the agent, including `balance, number of stocks owned, and various financial indicators (like adjusted close price, daily returns, volatility, Bayesian updated mean, standard deviation, and CDF).
-
-**Reset Method:** Resets the environment to its initial state, allowing the model to start fresh from a random point in the data, ensuring a diverse learning experience.
-
-**Step Method:**
-
-* Implements the core logic of the trading strategy. Depending on the chosen action (Buy, Hold, Sell), the method updates the balance, stock holdings, and calculates the reward.
-* Uses precomputed Bayesian standard deviation to adjust the reward based on risk, encouraging the agent to prefer less risky trades.
-* Tracks the trading history for later analysis and visualization.
-
-**Observation Method (`_get_observation`):** Provides the current state of the environment as a NumPy array, capturing essential details required for decision-making by the RL agent.
-
- **Render Method:** Provides visualization for the trading performance over time, plotting price, balance, and portfolio value, which is useful for debugging and understanding the agent’s decisions
-
-**6.3) Predefined Strategy**
-
-To kickstart our reinforcement learning model, we've developed a strategy to pre-populate the memory buffer with meaningful experiences. This strategy allows the model to start learning from a more informed baseline, rather than from completely random actions.
+The SumTree is an essential data structure used in Prioritized Experience Replay, which helps in efficiently sampling experiences based on their priority. The SumTree stores experiences along with their associated priorities and ensures that experiences with higher priority are sampled more frequently during training.
 
 ```python
+class SumTree:
+    def __init__(self, capacity):
+        self.capacity = capacity  # Number of leaf nodes (experiences)
+        self.tree = np.zeros(2 * capacity - 1)  # Binary tree array
+        self.data = np.zeros(capacity, dtype=object)  # Experience storage
+        self.size = 0
+        self.data_pointer = 0
 
+    def add(self, priority, data):
+        idx = self.data_pointer + self.capacity - 1
+        self.data[self.data_pointer] = data
+        self.update(idx, priority)
 
-    if current_position == 'buy' or current_position == 'hold':
-        balance += stock_owned * current_price * (1 - transaction_cost)
-        stock_owned = 0
+        self.data_pointer += 1
+        if self.data_pointer >= self.capacity:  # Replace when full
+            self.data_pointer = 0
 
-    return trading_results
+        self.size = min(self.size + 1, self.capacity)
 
-def normalize_state(state):
-    state_df = pd.DataFrame([state], columns=feature_names)
-    print(f"State shape before normalization: {state_df.shape}")
-    normalized_state = scaler.transform(state_df)
-    print(f"State shape after normalization: {normalized_state.shape}")
-    return normalized_state.flatten()
+    def update(self, idx, priority):
+        change = priority - self.tree[idx]
+        self.tree[idx] = priority
 
-def store_experience(memory_buffer, experience):
-    memory_buffer.append(experience)
+        while idx != 0:
+            idx = (idx - 1) // 2
+            self.tree[idx] += change
 
-def generate_initial_experiences(env, memory_buffer, num_steps):
-    state = env.reset()
-    state = normalize_state(state)
-    state = state.reshape(1, state_size, 1)
+    def get_leaf(self, value):
+        parent_idx = 0
+        while True:
+            left_child_idx = 2 * parent_idx + 1
+            right_child_idx = left_child_idx + 1
 
-    trading_results = predefined_strategy(env, num_steps)
+            if left_child_idx >= len(self.tree):
+                leaf_idx = parent_idx
+                break
+            else:
+                if value <= self.tree[left_child_idx]:
+                    parent_idx = left_child_idx
+                else:
+                    value -= self.tree[left_child_idx]
+                    parent_idx = right_child_idx
 
-    for index, (action, reward, balance, stock_owned) in enumerate(trading_results):
-      
-        if action is None or action not in [0, 1, 2]:
-           # print(f"Invalid action at index {index}: {action}")
-            continue  # Skip this step if action is invalid
-        next_state, _, _, _ = env.step(action)
-        next_state = normalize_state(next_state)
-        next_state = next_state.reshape(1, state_size, 1)
+        data_idx = leaf_idx - self.capacity + 1
+        return leaf_idx, self.tree[leaf_idx], self.data[data_idx]
 
-        done = (index == len(trading_results) - 1)
-        exp = experience(state, action, reward, next_state, done)
-        store_experience(memory_buffer, exp)
-
-        state = next_state
-
-def setup_timesteps(num_episodes, dataset_size, min_percentage, max_percentage):
-    min_timesteps = int(dataset_size * min_percentage)
-    max_timesteps = int(dataset_size * max_percentage)
-    
-    timesteps_per_episode = []
-    for _ in range(num_episodes):
-        timesteps = random.randint(min_timesteps, max_timesteps)
-        timesteps_per_episode.append(timesteps)
-    return timesteps_per_episode
-
-num_episodes = 600  # Number of episodes
-dataset_size = len(data)  # Size of the dataset
-min_percentage = 0.30 # Minimum percentage of the dataset size (30%)
-max_percentage = 0.40  # Maximum percentage of the dataset size (40%)
-num_timesteps = setup_timesteps(num_episodes, dataset_size, min_percentage, max_percentage)
-
-memory_buffer = deque(maxlen=100000)  # Set replay buffer size to 100000
-  
-initial_population_size = 20000 
-current_population = 0
-
-for episode_timesteps in num_timesteps:
-    if current_population >= initial_population_size:
-        break
-    generate_initial_experiences(env, memory_buffer, episode_timesteps)
-    current_population = len(memory_buffer)
+    def total_priority(self):
+        return self.tree[0]  # Root node
 ```
-The function `predefined_strategy(env, num_steps)` is designed to generate a sequence of trading actions based on simple logic involving the cumulative distribution function (CDF) of price movements. The goal of this function is to simulate a trading agent that interacts with the environment and fills up the memory buffer with initial experiences.
+Sum tree operates with a fixed capacity, storing experiences and their associated priorities in a binary tree structure (`self.tree`), while the actual experiences are stored in a separate array (`self.data`). The `add` function inserts new experiences with a priority, and as the buffer fills, older experiences are cyclically replaced. The `update` function adjusts the priority of a specific experience, propagating the changes through the tree to maintain accurate total priority values. The `get_leaf` function performs a binary search to sample an experience based on its priority, ensuring that experiences with higher priorities are more likely to be selected. Finally, the `total_priority` function returns the total sum of all priorities, which is stored at the root of the tree and used for probability-based sampling. This structure enables the system to efficiently prioritize important experiences during training.
 
-The predefined_strategy function outputs a list of trading results that contains the actions taken and the corresponding rewards.
+**6.5) Setting Up the Environment and Prioritized Experience Replay Buffer**
 
-**State Normalization Function:**
+At this stage of the project, we are defining the trading environments and setting up the replay buffer using a SumTree structure. The replay buffer will store experiences that the agent learns from, and the prioritization ensures that the most important experiences are sampled more frequently during training. This section also initializes the beta parameter, which helps control the importance-sampling weights during training, ensuring that the agent learns from both high-priority and random experiences over time.
 
-The `normalize_state(state)` function is a utility that normalizes the state using a pre-fitted scaler. This is crucial because machine learning models perform better with normalized input data.
+```python
+# Define the named tuple for experience
+Experience = namedtuple("Experience", field_names=["state", "action", "reward", "next_state", "done"])
 
-* Normalization Process: The input state is first converted to a DataFrame. The scaler, assumed to be pre-fitted on the training data, transforms the state features to a normalized scale. This normalized state is then flattened to be used as input for the model.
+# Setting up the environments
+env = TradingEnv(train_data)
+val_env = TradingEnv(val_data)
+num_episodes = 550  # Adjust the number of episodes as needed
 
-**Experience Storage Function:**
+# Create the replay buffer using the SumTree class
+MEMORY_SIZE = 50000
+memory_buffer = SumTree(capacity=MEMORY_SIZE)  # Set replay buffer size to 50,000
+alpha = 0.5  # Prioritization exponent
 
-The `store_experience(memory_buffer, experience)` function adds an experience to the memory buffer.
+# Initialize beta parameters for importance-sampling weights
+beta_start = 0.4  # Starting value for beta
+beta_end = 1.0  # Final value for beta
+beta_increment_per_episode = (beta_end - beta_start) / num_episodes
 
-* Experience Replay: In reinforcement learning, experiences consist of state transitions and are used to train the model. The memory_buffer is a deque object that stores these experiences up to a certain capacity (100,000 in this case).
+# Initialize beta
+beta = beta_start
+```
+In this code, we begin by defining `Experience` to store each step of the agent’s interaction with the environment. We then set up the training and validation environments using the `TradingEnv` class. The replay buffer is created with a `SumTree` structure, which allows us to efficiently store and prioritize up to 50,000 experiences. The parameter `alpha` controls how much prioritization is applied, and `beta` is initialized to adjust the importance-sampling weights, increasing its value gradually over 550 episodes to ensure that the agent learns from both highly prioritized and randomly selected experiences.
 
-**Generate Initial Experiences Function:**
 
-The `generate_initial_experiences(env, memory_buffer, num_steps)` function fills the memory buffer with initial trading experiences.
 
-* It resets the environment and obtains the initial state.
-* The `predefined_strategy` function is used to generate a series of predefined trading actions and results.
-* For each trading result, it steps through the environment, normalizes the next state, and stores the experience in the memory buffer.
 
-**Timesteps Setup Function**
 
-The `setup_timesteps(num_episodes, dataset_size, min_percentage, max_percentage)` function calculates random numbers of timesteps for each episode.
 
-* It generates a list of random timesteps for each episode based on a percentage range of the dataset size.
-* This randomness helps in creating varied lengths of experiences, making training more robust
 
-**Main Loop for Initial Experience Population**
 
-This code block initializes the memory buffer with initial experiences:
 
-* It sets up parameters such as the number of episodes and dataset size.
-* It initializes a memory buffer to store up to 100,000 experiences.
-* A loop iterates to populate the buffer with experiences generated from the predefined strategy until it reaches a specified size (20,000).
 
-Overall, this setup prepares the trading agent by providing a diverse set of initial experiences, which are crucial for effective reinforcement learning before starting the actual training process.
+
+
+
+
+
+
+
+
+
 
 
 
