@@ -488,7 +488,346 @@ The `observation_space` defines the shape of the data the model receives at each
 
 **Observation Function (_get_observation)**
 
-The _get_observation function generates a single feature vector (observation) for the current timestep. It pulls data such as adjusted close price, RSI, MACD Histogram, and internal state features (balance, stock owned, and last action).
+The `_get_observation` function generates a single feature vector (observation) for the current timestep. It pulls data such as adjusted close price, RSI, MACD Histogram, and internal state features (balance, stock owned, and last action).
+
+```python
+def _get_observation(self, index=None):
+    """
+    Return a single observation (a feature vector) from the dataset.
+    The observation corresponds to the timestep at the provided index,
+    including internal state features.
+    """
+    if index is None:
+        index = self.current_step
+    if index >= len(self.data):
+        raise ValueError("Current step exceeds the length of the data")
+
+    current_data = self.data.iloc[index]
+
+    # Construct the feature vector with the specified features
+    observation = np.array([
+        current_data['Nor_Adj_Close'],
+        current_data['RSI'],
+        current_data['MACD_Histogram'],
+        current_data['VWAP'],
+        current_data['Bollinger_Band_Width'],
+        current_data['50_day_MA'],
+        current_data['20_day_MA'],
+        current_data['9_day_MA'],
+        current_data['Skewness'],
+        current_data['Kurtosis'],
+        current_data['dynamic_rolling_variances'],
+        current_data['CDF'],
+        # Internal state features
+        self.balance / self.initial_balance,  # Normalize balance
+        self.stock_owned,
+        self.last_action if self.last_action is not None else -1  # Last action taken (-1 if none)
+    ], dtype=np.float32)
+
+    return observation
+```
+This function pulls relevant features from the dataset and combines them with internal state variables like current balance, stock owned, and the last action. This observation is what the agent receives at each timestep to make trading decisions. It is designed to provide a snapshot of the market's current state, including technical indicators like MACD Histogram, RSI, and other calculated features. Internal features (e.g., normalized balance) help the agent keep track of its portfolio.
+
+**Setup Timesteps Function (_setup_timesteps)**
+
+The `_setup_timesteps` function calculates the number of timesteps (or duration) for each episode, based on how much data remains and random intervals.
+
+```python
+def _setup_timesteps(self, start_index):
+    """
+    Setup the number of timesteps for an episode, based on the start index and remaining data.
+    Returns 0 if there are not enough sequences to form at least one timestep.
+    """
+    dataset_size = len(self.data)
+    remaining_data = dataset_size - (start_index + 1)
+    remaining_sequences = remaining_data - (self.lookback_window - 1)
+    
+    if remaining_sequences < 1:
+        return 0
+
+    # Calculate min and max timesteps based on percentages
+    min_timesteps = max(1, int(remaining_sequences * self.min_percentage))
+    max_timesteps = int(remaining_sequences * self.max_percentage)
+    
+    if max_timesteps <= min_timesteps:
+        max_timesteps = min_timesteps + 1
+    
+    num_timesteps = np.random.randint(min_timesteps, max_timesteps)
+    num_timesteps = min(num_timesteps, remaining_sequences)
+    
+    return num_timesteps
+```
+The environment uses this function to decide the length of each episode dynamically, based on the amount of data left in the dataset. It ensures that the environment has enough data to process meaningful trading sequences. The random selection of timesteps between the minimum and maximum percentages keeps each episode varied, making the environment more dynamic for the reinforcement learning model.
+
+**Reset Function (reset)**
+
+The `reset` function restores the environment to its initial state at the start of each new episode, selecting a valid starting point for the agent to begin trading.
+
+```python
+def reset(self):
+    """
+    Reset the environment to the initial state and return the first sequence.
+    Randomly select a starting point from uncovered datapoints.
+    If no valid starting point is found, reset the tracker and attempt again.
+    """
+    # Reset environment variables
+    self.balance = self.initial_balance
+    self.stock_owned = 0
+    self.current_position = None
+    self.entry_price = None
+    self.trading_history = []
+
+    # Attempt to find a valid starting point
+    valid_start_found = False
+    max_attempts = len(self.datapoints_covered)  # Prevent infinite loop
+    attempts = 0
+
+    while not valid_start_found and attempts < max_attempts:
+        uncovered_indices = np.where(self.datapoints_covered == False)[0]
+        
+        if len(uncovered_indices) == 0:
+            self.datapoints_covered[:] = False
+            uncovered_indices = np.where(self.datapoints_covered == False)[0]
+            if len(uncovered_indices) == 0:
+                raise ValueError("Dataset too small to form any sequences.")
+        
+        selected_index = np.random.choice(uncovered_indices)
+        self.current_step = selected_index + (self.lookback_window - 1)
+        
+        self.num_timesteps = self._setup_timesteps(self.current_step)
+        
+        if self.num_timesteps > 0:
+            valid_start_found = True
+            start_cover = self.current_step - self.lookback_window + 1
+            end_cover = self.current_step + 1
+            self.datapoints_covered[start_cover:end_cover] = True
+            return self._get_sequence(self.current_step)
+        else:
+            self.datapoints_covered[selected_index] = True
+            attempts += 1
+            print(f"Skipping episode starting at index {selected_index} due to insufficient data.")
+
+    if not valid_start_found:
+        self.datapoints_covered[:] = False
+        print("Resetting datapoints_covered tracker and attempting to reset again.")
+        return self.reset()
+```
+This function resets the environment at the beginning of each episode. It restores the initial balance, clears the trading history, and randomly selects an uncovered starting point from the dataset. The function ensures that enough data is available to form valid trading sequences. If not enough data is available, it resets the data tracker and tries again, ensuring fair starting points for every episode.
+
+**Reset Evaluation Function (reset_eval)**
+
+The `reset_eval` function resets the environment specifically for evaluation, always starting from the beginning of the dataset.
+
+```python
+def reset_eval(self):
+    """
+    Reset the environment to the initial state for evaluation/testing.
+    Start from the beginning of the dataset.
+    """
+    self.balance = self.initial_balance
+    self.stock_owned = 0
+    self.current_position = None
+    self.entry_price = None
+    self.trading_history = []
+    self.profit_target_reached = False
+
+    self.current_step = self.lookback_window - 1
+    return self._get_sequence(self.current_step)
+```
+This function is a simplified reset used during the evaluation phase. It resets all internal states like balance, stock ownership, and trading history but starts from the beginning of the dataset, unlike
+
+**Get Sequence Function (_get_sequence)**
+
+The `_get_sequence` function returns a sequence of timesteps based on the current step, using the lookback window to gather past observations and the present one.
+
+```python
+def _get_sequence(self, current_step):
+    """
+    Return a sequence of timesteps looking back from the current step.
+    The sequence includes the current step and the previous lookback_window - 1 steps.
+    """
+    if current_step < self.lookback_window - 1:
+        raise ValueError("Not enough data points to create the lookback window")
+
+    sequence_start = current_step - self.lookback_window + 1
+    sequence_end = current_step + 1  # Include the current step
+
+    # Collect the sequence of observations for each timestep in the window
+    sequence = []
+    for i in range(sequence_start, sequence_end):
+        observation = self._get_observation(i)  # Get the observation for each timestep
+        sequence.append(observation)
+
+    return np.array(sequence).astype(np.float32)
+```
+This function provides the reinforcement learning model with a sequence of observations. It uses the current step and a lookback window to collect data from both past and present timesteps, forming the "input history" for the model. This ensures that the agent can consider historical data when making decisions. The function checks that there is enough data to form a sequence and raises an error if the dataset is too small.
+
+**Step Function (step)**
+
+The `step` function processes the agent’s action and returns the next sequence, reward, and a flag indicating whether the episode is finished. It also updates the agent’s portfolio, calculates transaction costs, and rewards based on the chosen action.
+
+```python
+def step(self, action):
+    """
+    Take an action, calculate the reward, and return the next sequence.
+    """
+    current_price = self.data.iloc[self.current_step]['Adj Close']
+    
+    reward = 0
+    transaction_cost_value = 0
+    immediate_reward_scale = 0.1  # Scale for immediate rewards
+
+    # Action: 0 = Sell, 1 = Hold, 2 = Buy
+    if action == 2:  # Buy
+        if self.stock_owned == 0:
+            max_shares = (self.balance * 0.15) / current_price
+            if max_shares >= 1:
+                shares_to_buy = np.floor(max_shares)
+                total_purchase = shares_to_buy * current_price
+                transaction_cost_value = total_purchase * self.transaction_cost
+                total_cost = total_purchase + transaction_cost_value
+                self.stock_owned += shares_to_buy
+                self.balance -= total_cost
+                self.entry_price = current_price
+                reward = 0 
+            else:
+                reward -= 10 * immediate_reward_scale
+
+    elif action == 1:  # Hold
+        if self.stock_owned > 0:
+            price_difference = current_price - self.entry_price
+            reward = price_difference * self.stock_owned
+            reward *= immediate_reward_scale
+        else:
+            reward -= 10 * immediate_reward_scale
+
+    elif action == 0:  # Sell
+        if self.stock_owned > 0:
+            price_difference = current_price - self.entry_price
+            reward = price_difference * self.stock_owned
+            gross_sell_value = self.stock_owned * current_price
+            transaction_cost_value = gross_sell_value * self.transaction_cost
+            net_sell_value = gross_sell_value - transaction_cost_value
+            self.balance += net_sell_value
+            self.stock_owned = 0
+            self.entry_price = None
+            reward *= immediate_reward_scale
+        else:
+            reward -= 10 * immediate_reward_scale
+
+    # Update the last action
+    self.last_action = action
+
+    # Move the step forward
+    self.current_step += 1
+
+    # Update net worth
+    current_net_worth = self.balance + self.stock_owned * current_price
+
+    done = self.current_step >= len(self.data) - 1
+    if done and self.stock_owned > 0:
+        gross_sell_value = self.stock_owned * current_price
+        transaction_cost_value = gross_sell_value * self.transaction_cost
+        net_sell_value = gross_sell_value - transaction_cost_value
+        self.balance += net_sell_value
+        self.stock_owned = 0
+        self.entry_price = None
+        current_net_worth = self.balance
+
+    if done:
+        historical_net_worth = [entry['portfolio_value'] for entry in self.trading_history]
+        returns = np.diff(historical_net_worth)
+        sharpe_ratio = self.calculate_sharpe_ratio(returns)
+        scaled_sharpe_ratio = sharpe_ratio * 100
+        reward += scaled_sharpe_ratio
+
+    if not self.profit_target_reached and current_net_worth >= self.initial_balance * 1.10:
+        reward += 100.0
+        self.profit_target_reached = True
+
+    self.trading_history.append({
+        'step': self.current_step,
+        'current_price': current_price,
+        'balance': self.balance,
+        'portfolio_value': current_net_worth,
+        'reward': reward,
+        'action': action
+    })
+
+    if not done:
+        next_sequence = self._get_sequence(self.current_step)
+    else:
+        next_sequence = np.zeros_like(self._get_sequence(self.current_step - 1))
+
+    return next_sequence, reward, done, {"portfolio_value": current_net_worth}
+```
+The step function processes the agent’s chosen action and returns the next observation sequence, reward, and done flag. The agent can choose to buy, hold, or sell stocks. Buying involves purchasing stock with a portion of the available balance, holding maintains the stock position, and selling involves liquidating the holdings. Rewards are calculated based on the change in stock price relative to the entry price, with penalties for invalid actions (e.g., selling without holding stock). At the end of the episode, the Sharpe ratio is calculated and added to the reward, and any remaining stock is liquidated.
+
+ **Calculate Sharpe Ratio Function (calculate_sharpe_ratio)**
+
+ The `calculate_sharpe_ratio` function computes the Sharpe ratio for the agent's trading performance, based on the returns and a given risk-free rate.
+
+```python
+def calculate_sharpe_ratio(self, returns, risk_free_rate=0.02):
+    """
+    Calculate the Sharpe ratio based on the returns.
+    """
+    excess_returns = returns - risk_free_rate
+    sharpe_ratio = np.mean(excess_returns) / (np.std(excess_returns) + 1e-9)
+    return sharpe_ratio
+```
+This function calculates the Sharpe ratio, a popular metric for evaluating the risk-adjusted return of an investment. It measures the excess return per unit of risk taken, where the risk is represented by the standard deviation of returns. The higher the Sharpe ratio, the better the risk-adjusted performance. In this case, it is used as a final bonus reward at the end of each episode.
+
+**Render Function (render)**
+
+The `render` function plots the portfolio value, rewards, and actions over the course of an episode, providing a visual representation of the agent's performance.
+
+```python
+def render(self, mode='human'):
+    """
+    Render plots showing the portfolio value, rewards, and actions over the episode.
+    """
+    if len(self.trading_history) == 0:
+        print("No trading history available for this episode.")
+        return
+
+    steps = [entry['step'] for entry in self.trading_history]
+    portfolio_values = [entry['portfolio_value'] for entry in self.trading_history]
+    rewards = [entry['reward'] for entry in self.trading_history]
+    prices = [entry['current_price'] for entry in self.trading_history]
+    
+    actions = [entry.get('action', None) for entry in self.trading_history]
+
+    fig, axs = plt.subplots(3, 1, figsize=(12, 15))
+
+    axs[0].plot(steps, portfolio_values, label='Portfolio Value', color='blue')
+    axs[0].set_title('Portfolio Value Over Time')
+    axs[0].set_xlabel('Timestep')
+    axs[0].set_ylabel('Portfolio Value (INR)')
+    axs[0].legend()
+    axs[0].grid(True)
+
+    cumulative_rewards = np.cumsum(rewards)
+    axs[1].plot(steps, rewards, label='Reward', color='orange')
+    axs[1].plot(steps, cumulative_rewards, label='Cumulative Reward', color='green', linestyle='--')
+    axs[1].set_title('Rewards Over Time')
+    axs[1].set_xlabel('Timestep')
+    axs[1].set_ylabel('Reward')
+    axs[1].legend()
+    axs[1].grid(True)
+
+    axs[2].plot(steps, prices, label='Price', color='black')
+    
+    buy_steps = [step for step, action in zip(steps, actions) if action == 2]
+    buy_prices = [price for price, action in zip(prices, actions) if action == 2]
+    sell_steps = [step for step, action in zip(steps, actions) if action == 0]
+    sell_prices = [price for price, action in zip(prices, actions) if action == 0]
+    hold_steps = [step for step, action in zip(steps, actions) if action == 1]
+    hold_prices = [price for price, action in zip(prices, actions) if action == 
+```
+
+
+
 
 
 
