@@ -441,7 +441,59 @@ To model our trading scenario, we define a custom environment class named Tradin
 
 Let's walk through the custom environment, breaking it down into separate parts with explanations.
 
-**Initialization `(__init__)`**
+**Initialization (__init__)**
+
+The `__init__` function sets up the environment with necessary parameters and variables. This includes the initial balance, transaction costs, lookback window, and the dataset used for training. It also defines the action space (Buy, Hold, Sell) and observation space for the reinforcement learning model.
+
+```python
+class TradingEnv(gym.Env):
+    def __init__(self, data, initial_balance=1000000, transaction_cost=0.000135, lookback_window=10):
+        super(TradingEnv, self).__init__()
+
+        # Dataset and parameters
+        self.data = data
+        self.initial_balance = initial_balance
+        self.transaction_cost = transaction_cost
+        self.lookback_window = lookback_window
+
+        # Define min and max percentage for episode length calculation
+        self.min_percentage = 0.30
+        self.max_percentage = 0.90
+
+        # Environment state
+        self.balance = self.initial_balance
+        self.stock_owned = 0
+        self.current_step = 0
+        self.current_position = None
+        self.entry_price = None
+        self.last_action = None
+        self.profit_target_reached = False
+        self.trading_history = []
+
+        # Action space: Buy, Hold, Sell
+        self.action_space = gym.spaces.Discrete(3)
+        
+        # Observation space: shape is (lookback_window, n_features), i.e., sequence of timesteps
+        self.n_features = len(self._get_observation())
+        self.observation_space = gym.spaces.Box(
+            low=-np.inf, high=np.inf, shape=(self.lookback_window, self.n_features), dtype=np.float32
+        )
+
+        # Initialize a tracker to ensure each datapoint is covered
+        self.datapoints_covered = np.zeros(len(self.data) - self.lookback_window, dtype=bool)
+```
+This function initializes the trading environment. The dataset (data) contains historical market data, and the agent starts with a predefined balance (initial_balance). The agent can choose between three actions: Buy, Hold, and Sell, defined in the action_space. The environment tracks essential variables like stock owned, current balance, and trading history. It also sets up a lookback window to observe past market data and normalize the data, ensuring that the environment processes data over a range of time steps.
+
+The `observation_space` defines the shape of the data the model receives at each timestep, which includes the lookback window's worth of market and internal state features.
+
+**Observation Function (_get_observation)**
+
+The _get_observation function generates a single feature vector (observation) for the current timestep. It pulls data such as adjusted close price, RSI, MACD Histogram, and internal state features (balance, stock owned, and last action).
+
+
+
+
+
 
 
 
@@ -488,67 +540,7 @@ To model our trading scenario, we define a custom environment class named Tradin
 To kickstart our reinforcement learning model, we've developed a strategy to pre-populate the memory buffer with meaningful experiences. This strategy allows the model to start learning from a more informed baseline, rather than from completely random actions.
 
 ```python
-def predefined_strategy(env, num_steps):
-    previous_cdf = None
-    current_position = None  # can be 'buy', 'hold', or 'sell'
-    entry_price = None  # price at which the asset was bought
-    balance = env.initial_balance
-    stock_owned = 0
-    transaction_cost = env.transaction_cost
-    trading_results = []
 
-    for index in range(num_steps):
-        row = env.data.iloc[index]
-        current_cdf = row['CDF']
-        current_price = row['Adj Close']
-        reward = 0
-        action = None
-
-        if previous_cdf is None:
-            previous_cdf = current_cdf
-            trading_results.append((None, 0, balance, stock_owned))
-            continue
-
-        if current_cdf > previous_cdf:
-            if current_position is None or current_position == 'sell':
-                current_position = 'buy'
-                entry_price = current_price
-                shares_to_buy = (balance * 0.15) / (current_price * (1 + transaction_cost))
-                stock_owned += shares_to_buy
-                balance -= shares_to_buy * current_price * (1 + transaction_cost)
-                action = 2  # Buy
-            else:
-                current_position = 'hold'
-                action = 1  # Hold
-                if index > 0:
-                    previous_price = env.data.iloc[index - 1]['Adj Close']
-                    reward = current_price - previous_price
-        elif current_cdf == previous_cdf:
-            if current_position == 'buy' or current_position == 'hold':
-                current_position = 'hold'
-                action = 1  # Hold
-                if index > 0:
-                    previous_price = env.data.iloc[index - 1]['Adj Close']
-                    reward = current_price - previous_price
-        else:  # current_cdf < previous_cdf
-            if current_position == 'buy' or current_position == 'hold':
-                current_position = 'sell'
-                action = 0  # Sell
-                reward = current_price - entry_price
-                balance += stock_owned * current_price * (1 - transaction_cost)
-                stock_owned = 0
-                entry_price = None
-            else:
-                current_position = None
-                action = 0  # Sell
-                reward = -0.5
-
-        if current_position is None:
-            reward = -0.5
-       
-        previous_cdf = current_cdf
-     
-        trading_results.append((action, reward, balance, stock_owned))
 
     if current_position == 'buy' or current_position == 'hold':
         balance += stock_owned * current_price * (1 - transaction_cost)
