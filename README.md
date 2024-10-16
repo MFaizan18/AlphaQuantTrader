@@ -108,8 +108,10 @@ test_start_date = '2023-01-01'
 
 ```python
 # Function to calculate daily returns
-def calculate_daily_returns(data):
-    return data['Close'].pct_change()
+def calculate_log_returns(data):
+    # Log return formula applied to the 'Adj Close' price
+    log_returns = np.log(data['Adj Close'] / data['Adj Close'].shift(1))
+    return log_returns
 
 # Function to calculate RSI (Relative Strength Index)
 def calculate_rsi(data, window=14):
@@ -145,7 +147,7 @@ def calculate_bollinger_band_width(data, window=20, num_std_dev=2):
     return bollinger_band_width
 
 # Calculate features on the entire dataset
-data['Daily Returns'] = calculate_daily_returns(data)
+data['Log Returns'] = calculate_log_returns(data)
 data['RSI'] = calculate_rsi(data)
 data['MACD_Histogram'] = calculate_macd_histogram(data)
 data['VWAP'] = calculate_vwap(data)
@@ -153,10 +155,10 @@ data['Bollinger_Band_Width'] = calculate_bollinger_band_width(data)
 data['50_day_MA'] = data['Close'].rolling(window=50).mean()
 data['20_day_MA'] = data['Close'].rolling(window=20).mean()
 data['9_day_MA'] = data['Close'].rolling(window=9).mean()
-data['Skewness'] = data['Daily Returns'].rolling(window=20).apply(lambda x: skew(x, bias=False))
-data['Kurtosis'] = data['Daily Returns'].rolling(window=20).apply(lambda x: kurtosis(x, bias=False))
+data['Skewness'] = data['Log Returns'].rolling(window=20).apply(lambda x: skew(x, bias=False))
+data['Kurtosis'] = data['Log Returns'].rolling(window=20).apply(lambda x: kurtosis(x, bias=False))
 ```
-`calculate_daily_returns(data)`: Computes the daily percentage returns of the stock based on the closing prices, which are essential for understanding the day-to-day movement of the stock.
+`calculate_log_returns(data)`: Computes the log returns of the stock based on the closing prices, which are essential for understanding the day-to-day movement of the stock.
 
 `calculate_rsi(data, window=14)`: Calculates the Relative Strength Index (RSI), a momentum oscillator used to evaluate overbought or oversold conditions in the stock market. This is based on average gains and losses over a rolling window of 14 periods by default.
 
@@ -168,9 +170,9 @@ data['Kurtosis'] = data['Daily Returns'].rolling(window=20).apply(lambda x: kurt
 
 **5.3) Skewness and Kurtosis**
 
-`data['Skewness']`: Computes the rolling skewness of daily returns over a 20-day window. Skewness measures the asymmetry of the return distribution, providing insights into whether returns are skewed more to the left (negative skew) or right (positive skew).
+`data['Skewness']`: Computes the rolling skewness of log returns over a 20-day window. Skewness measures the asymmetry of the return distribution, providing insights into whether returns are skewed more to the left (negative skew) or right (positive skew).
 
-`data['Kurtosis']`: Computes the rolling kurtosis of daily returns over a 20-day window. Kurtosis measures the "tailedness" of the return distribution, indicating whether returns have more or fewer extreme values (fat tails or thin tails) compared to a normal distribution.
+`data['Kurtosis']`: Computes the rolling kurtosis of log returns over a 20-day window. Kurtosis measures the "tailedness" of the return distribution, indicating whether returns have more or fewer extreme values (fat tails or thin tails) compared to a normal distribution.
 
  **5.4) Volatility and Dynamic Window Size Calculation**
 
@@ -196,10 +198,10 @@ def determine_dynamic_window_size(volatility, min_window=5, max_window=20, epsil
     return dynamic_window_size.fillna(min_window).astype(int)
 
 # Calculate volatility and dynamic window sizes
-data.loc[:, 'volatility'] = calculate_fixed_window_volatility(data['Daily Returns'])
+data.loc[:, 'volatility'] = calculate_fixed_window_volatility(data['Log Returns'])
 data.loc[:, 'dynamic_window_sizes'] = determine_dynamic_window_size(data['volatility'])
 ```
-This code block begins by calculating the rolling volatility of daily returns using the `calculate_fixed_window_volatility` function. The function takes the daily returns and computes how volatile the market has been over the last 20 days, storing the results in the volatility column.
+This code block begins by calculating the rolling volatility of log returns using the `calculate_fixed_window_volatility` function. The function takes the daily returns and computes how volatile the market has been over the last 20 days, storing the results in the volatility column.
 
 Next, the `determine_dynamic_window_size` function adjusts the window size dynamically based on the calculated volatility. This adjustment ensures that during periods of high volatility, the analysis focuses on more recent data by using a smaller window size. The dynamically adjusted window sizes are then stored in the dynamic_window_sizes column.
 
@@ -358,7 +360,7 @@ cdfs = {}
 
 # Loop through the data for Bayesian updates
 for i, row in data.iterrows():
-    x_i = row['Daily Returns']
+    x_i = row['Log Returns']
     
     # Update posterior parameters
     mu_posterior, kappa_posterior, alpha_posterior, beta_posterior = update_posterior(
@@ -380,7 +382,7 @@ for i, row in data.iterrows():
 # Store the calculated CDF values in the DataFrame
 data.loc[:, 'CDF'] = data.index.map(cdfs)
 ```
-In this section, the code iterates through each observation in the dataset. For each daily return (`x_i`), the posterior parameters for the mean (`mu_posterior`), precision (`kappa_posterior`), and variance-controlling parameters (`alpha_posterior`, `beta_posterior`) are updated using Bayesian updating, just like in the previous step. After updating the parameters, the posterior variance (`sigma_posterior_squared`) of the mean is calculated, giving us an updated sense of the uncertainty around the mean estimate.
+In this section, the code iterates through each observation in the dataset. For each log return (`x_i`), the posterior parameters for the mean (`mu_posterior`), precision (`kappa_posterior`), and variance-controlling parameters (`alpha_posterior`, `beta_posterior`) are updated using Bayesian updating, just like in the previous step. After updating the parameters, the posterior variance (`sigma_posterior_squared`) of the mean is calculated, giving us an updated sense of the uncertainty around the mean estimate.
 
 Next, the CDF is computed using the updated posterior mean and variance. This step uses the `norm.cdf` function, which calculates the probability that a given return will be less than or equal to x_i based on the updated distribution. The CDF values represent these probabilities for each data point. After calculating the CDF, the priors are updated with the new posterior values, allowing the model to continuously adapt as more data comes in. This ensures that each new observation refines our estimates further, making the model more adaptive and accurate over time.
 
