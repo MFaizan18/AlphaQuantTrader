@@ -46,7 +46,7 @@ import random
 from collections import namedtuple
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense, Dropout, ReLU, Input
+from tensorflow.keras.layers import LSTM, Dense, Dropout, Input, Conv1D, ReLU, Bidirectional, BatchNormalization
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.regularizers import l2
 import matplotlib.pyplot as plt
@@ -395,6 +395,54 @@ In this section, we move into the model training phase of our project, where we 
 **6.1) What is an Environment in OpenAI Gym?**
 
 In the context of reinforcement learning, an environment is essentially a problem that the agent (our trading model) tries to solve. It defines the state space (all possible situations the agent might encounter), the action space (all possible moves the agent can make), and the reward structure (how good or bad each action is, given the current state). The OpenAI Gym library provides a convenient framework for building these environments and includes many pre-built environments for classic RL problems like cart-pole balancing, playing video games, and more. However, since our problem is a custom financial trading scenario, we need to create a custom environment that reflects the dynamics of trading in a financial market.
+
+**6.2) Feature Normalization and Data Splitting**
+
+In this step, we split the dataset into training and validation sets and normalize specific features to ensure the model performs optimally. We exclude certain features like the RSI and CDF from normalization since they represent ratios and probabilities, which don’t require scaling. The normalization process ensures that all features, aside from `RSI` and `CDF`, are on a consistent scale, making it easier for the model to learn from the data.
+
+```python
+# List of features to normalize (excluding 'RSI' and 'CDF')
+features_to_normalize = [
+    'Nor_Adj_Close', 'MACD_Histogram', 'VWAP',
+    '50_day_MA', '20_day_MA', '9_day_MA',
+    'Skewness', 'Kurtosis', 'dynamic_rolling_variances'
+]
+
+# Split the data into training and validation sets
+train_end_date = '2021-12-31'
+val_end_date = '2022-12-31'
+
+train_data = data[data.index <= train_end_date].copy()
+val_data = data[(data.index > train_end_date) & (data.index <= val_end_date)].copy()
+
+# Ensure there's no overlap
+assert train_data.index.max() < val_data.index.min(), "Training and validation data overlap!"
+
+# Normalize features using scalers fitted on training data
+scaler = StandardScaler()
+train_data[features_to_normalize] = scaler.fit_transform(train_data[features_to_normalize])
+val_data[features_to_normalize] = scaler.transform(val_data[features_to_normalize])
+
+# Reset indices but keep the date as a column
+train_data.reset_index(inplace=True)
+val_data.reset_index(inplace=True)
+train_data.rename(columns={'index': 'Date'}, inplace=True)
+val_data.rename(columns={'index': 'Date'}, inplace=True)
+
+# Ensure 'Date' columns are datetime
+train_data['Date'] = pd.to_datetime(train_data['Date'])
+val_data['Date'] = pd.to_datetime(val_data['Date'])
+```
+The features to be normalized include values such as adjusted close prices, technical indicators like MACD Histogram, and statistical measures like skewness. However, we intentionally avoid normalizing RSI and CDF because RSI is a bounded ratio between 0 and 100, and CDF represents probabilities, both of which are already on a standard scale. The dataset is split into training data (up to the end of 2021) and validation data (2022). We fit a StandardScaler on the training data, ensuring both the training and validation sets are scaled similarly. Lastly, the indices are reset and converted to datetime format, making the data ready for use in the next steps.
+
+
+
+
+
+
+
+
+
 
 -----------------------------------------------------------------------------------------------------------------
 **6.2) Creating a Custom Trading Environment**
