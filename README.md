@@ -668,98 +668,144 @@ The `step` function processes the agent’s action and returns the next sequence
 
 ```python
 def step(self, action):
-    """
-    Take an action, calculate the reward, and return the next sequence.
-    """
-    current_price = self.data.iloc[self.current_step]['Adj Close']
+        """
+        Take an action, calculate the reward, and return the next sequence.
+        """
+        # Record the current price
+        current_price = self.data.iloc[self.current_step]['Adj Close']
+        
+        # Initialize variables
+        reward = 0
+        transaction_cost_value = 0
     
-    reward = 0
-    transaction_cost_value = 0
-    immediate_reward_scale = 0.1  # Scale for immediate rewards
-
-    # Action: 0 = Sell, 1 = Hold, 2 = Buy
-    if action == 2:  # Buy
-        if self.stock_owned == 0:
-            max_shares = (self.balance * 0.15) / current_price
-            if max_shares >= 1:
-                shares_to_buy = np.floor(max_shares)
-                total_purchase = shares_to_buy * current_price
-                transaction_cost_value = total_purchase * self.transaction_cost
-                total_cost = total_purchase + transaction_cost_value
-                self.stock_owned += shares_to_buy
-                self.balance -= total_cost
-                self.entry_price = current_price
-                reward = 0 
+       
+        # Scaling factors
+        immediate_reward_scale = 1.0  # Scale for immediate rewards (e.g., price difference rewards)
+        sharpe_ratio_scale = 100
+        
+        # Handle the actions: 0 = Sell, 1 = Hold, 2 = Buy
+        if action == 2:  # Buy
+            if self.stock_owned == 0:
+                # Buy with 15% of balance (as before)
+                max_shares = (self.balance * 0.10) / current_price
+                if max_shares >= 1:
+                    shares_to_buy = np.floor(max_shares)
+                    total_purchase = shares_to_buy * current_price
+                    transaction_cost_value = total_purchase * self.transaction_cost
+                    total_cost = total_purchase + transaction_cost_value
+                    self.stock_owned += shares_to_buy
+                    self.balance -= total_cost
+                    self.entry_price = current_price  # Track the purchase price
+                    
+                    # No reward or penalty for buying; just tracking the position
+                    reward = 0 
+                else:
+                    # penalty for overspending 
+                    reward -= 10 * immediate_reward_scale
             else:
+                # penalizing for repitative buying 
                 reward -= 10 * immediate_reward_scale
-
-    elif action == 1:  # Hold
-        if self.stock_owned > 0:
-            price_difference = current_price - self.entry_price
-            reward = price_difference * self.stock_owned
-            reward *= immediate_reward_scale
-        else:
-            reward -= 10 * immediate_reward_scale
-
-    elif action == 0:  # Sell
-        if self.stock_owned > 0:
-            price_difference = current_price - self.entry_price
-            reward = price_difference * self.stock_owned
+    
+        elif action == 1:  # Hold
+            if self.stock_owned > 0:
+                # Calculate the difference between the current price and the entry price
+                price_difference = current_price - self.entry_price
+                reward = price_difference * self.stock_owned  # Reward is profit or loss on held stock
+    
+                # Scale the immediate reward
+                reward *= immediate_reward_scale
+    
+            else:
+                # penalty for holding with out stock held
+                reward -= 10 * immediate_reward_scale
+    
+        elif action == 0:  # Sell
+            if self.stock_owned > 0:
+                # Calculate profit or loss based on sell price and buy price
+                price_difference = current_price - self.entry_price
+                reward = price_difference * self.stock_owned  # Reward is profit or loss on sold stock
+    
+                # Sell all shares
+                gross_sell_value = self.stock_owned * current_price
+                transaction_cost_value = gross_sell_value * self.transaction_cost
+                net_sell_value = gross_sell_value - transaction_cost_value
+                self.balance += net_sell_value
+                self.stock_owned = 0
+                self.entry_price = None
+    
+                # Scale the immediate reward
+                reward *= immediate_reward_scale
+    
+            else:
+                # Penalty for attempting to sell without holding any stock
+                reward -= 10 * immediate_reward_scale  # Penalty remains the same
+    
+        # Update last action
+        self.last_action = action
+    
+        # Move the step forward
+        self.current_step += 1
+    
+        # Update net worth
+        current_net_worth = self.balance + self.stock_owned * current_price
+    
+        # Set reward to zero for the buy action (no immediate feedback for buy)
+        if action == 2:
+            reward = 0  # No reward for buying
+    
+        # Check if we're done
+        done = self.current_step >= len(self.data) - 1
+    
+        # If done, liquidate any remaining stock holdings
+        if done and self.stock_owned > 0:
+            # Sell all shares at current price
             gross_sell_value = self.stock_owned * current_price
             transaction_cost_value = gross_sell_value * self.transaction_cost
             net_sell_value = gross_sell_value - transaction_cost_value
             self.balance += net_sell_value
             self.stock_owned = 0
             self.entry_price = None
-            reward *= immediate_reward_scale
+            # Update net worth
+            current_net_worth = self.balance
+    
+        # If done (end of the episode), calculate Sharpe Ratio and add it as a scaled reward
+        if done:
+            historical_net_worth = [entry['portfolio_value'] for entry in self.trading_history]
+            returns = np.diff(historical_net_worth)
+            sharpe_ratio = self.calculate_sharpe_ratio(returns)
+    
+            # Scale the Sharpe Ratio to make it comparable to immediate rewards
+            scaled_sharpe_ratio = sharpe_ratio * sharpe_ratio_scale  # Example scaling factor
+    
+            # Add the scaled Sharpe Ratio as a final bonus reward
+            reward += scaled_sharpe_ratio
+    
+        # Task completion reward (10% total return)
+        if not self.profit_target_reached and current_net_worth >= self.initial_balance * 1.10:
+            # Calculate bonus as 10% of profit
+            profit = current_net_worth - self.initial_balance
+            bonus_reward = profit * 0.10
+            reward += bonus_reward
+            self.profit_target_reached = True
+    
+        # Log the trading history
+        self.trading_history.append({
+            'step': self.current_step,
+            'current_price': current_price,
+            'balance': self.balance,
+            'portfolio_value': current_net_worth,
+            'reward': reward,
+            'action': action
+        })
+    
+        # Get the next sequence after the action
+        if not done:
+            next_sequence = self._get_sequence(self.current_step)
         else:
-            reward -= 10 * immediate_reward_scale
-
-    # Update the last action
-    self.last_action = action
-
-    # Move the step forward
-    self.current_step += 1
-
-    # Update net worth
-    current_net_worth = self.balance + self.stock_owned * current_price
-
-    done = self.current_step >= len(self.data) - 1
-    if done and self.stock_owned > 0:
-        gross_sell_value = self.stock_owned * current_price
-        transaction_cost_value = gross_sell_value * self.transaction_cost
-        net_sell_value = gross_sell_value - transaction_cost_value
-        self.balance += net_sell_value
-        self.stock_owned = 0
-        self.entry_price = None
-        current_net_worth = self.balance
-
-    if done:
-        historical_net_worth = [entry['portfolio_value'] for entry in self.trading_history]
-        returns = np.diff(historical_net_worth)
-        sharpe_ratio = self.calculate_sharpe_ratio(returns)
-        scaled_sharpe_ratio = sharpe_ratio * 100
-        reward += scaled_sharpe_ratio
-
-    if not self.profit_target_reached and current_net_worth >= self.initial_balance * 1.10:
-        reward += 100.0
-        self.profit_target_reached = True
-
-    self.trading_history.append({
-        'step': self.current_step,
-        'current_price': current_price,
-        'balance': self.balance,
-        'portfolio_value': current_net_worth,
-        'reward': reward,
-        'action': action
-    })
-
-    if not done:
-        next_sequence = self._get_sequence(self.current_step)
-    else:
-        next_sequence = np.zeros_like(self._get_sequence(self.current_step - 1))
-
-    return next_sequence, reward, done, {"portfolio_value": current_net_worth}
+            # Ensure next_sequence is a NumPy array of the correct shape filled with zeros
+            next_sequence = np.zeros_like(self._get_sequence(self.current_step - 1))
+    
+        return next_sequence, reward, done, {"portfolio_value": current_net_worth}
 ```
 The step function processes the agent’s chosen action and returns the next observation sequence, reward, and done flag. The agent can choose to buy, hold, or sell stocks. Buying involves purchasing stock with a portion of the available balance, holding maintains the stock position, and selling involves liquidating the holdings. Rewards are calculated based on the change in stock price relative to the entry price, with penalties for invalid actions (e.g., selling without holding stock). At the end of the episode, the Sharpe ratio is calculated and added to the reward, and any remaining stock is liquidated.
 
@@ -898,7 +944,7 @@ num_episodes = 550  # Adjust the number of episodes as needed
 # Create the replay buffer using the SumTree class
 MEMORY_SIZE = 50000
 memory_buffer = SumTree(capacity=MEMORY_SIZE)  # Set replay buffer size to 50,000
-alpha = 0.5  # Prioritization exponent
+alpha = 0.6  # Prioritization exponent
 
 # Initialize beta parameters for importance-sampling weights
 beta_start = 0.4  # Starting value for beta
