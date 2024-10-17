@@ -956,6 +956,240 @@ beta = beta_start
 ```
 In this code, we begin by defining `Experience` to store each step of the agent’s interaction with the environment. We then set up the training and validation environments using the `TradingEnv` class. The replay buffer is created with a `SumTree` structure, which allows us to efficiently store and prioritize up to 50,000 experiences. The parameter `alpha` controls how much prioritization is applied, and `beta` is initialized to adjust the importance-sampling weights, increasing its value gradually over 550 episodes to ensure that the agent learns from both highly prioritized and randomly selected experiences.
 
+**6.6 Storing and Sampling Experiences in Prioritized Experience Replay**
+
+As the agent interacts with the environment, it gathers experiences that are crucial for learning. These two functions handle the storage of experiences in the replay buffer and the sampling of experiences with prioritization, making sure that more significant experiences have a higher probability of being replayed during training. This is essential for improving the efficiency of learning, especially in reinforcement learning setups where important experiences should be learned more frequently.
+
+**Storing Experiences**
+
+```python
+def store_experience(memory_buffer, exp):
+    """
+    Stores an experience tuple in the replay buffer.
+    """
+    # Get the maximum current priority from the leaf nodes
+    max_priority = np.max(memory_buffer.tree[-memory_buffer.capacity:]) if memory_buffer.size > 0 else 1.0
+
+    # Add the new experience to the memory buffer with the max priority
+    memory_buffer.add(max_priority, exp)
+```
+This function is responsible for storing an experience tuple (`state`, `action`, `reward`, `next_state`, `done`) in the `memory_buffer`. The experience is added with the highest possible priority, ensuring it will be prioritized for replay when sampling. If the buffer already has experiences, it uses the maximum priority of existing experiences; otherwise, it defaults to a priority of 1.0 for the first experience.
+
+**Sampling Experiences**
+
+```python
+def sample_experiences(memory_buffer, batch_size, beta):
+    current_size = memory_buffer.size
+    actual_batch_size = min(batch_size, current_size)
+
+    experiences = []
+    indexes = []
+    priorities = []
+
+    total_priority = memory_buffer.total_priority()
+
+    if total_priority == 0:
+        print("Total priority is zero, cannot sample experiences.")
+        return None, None, None
+
+    segment = total_priority / actual_batch_size  # Divide total priority into equal segments
+
+    for i in range(actual_batch_size):
+        a = segment * i
+        b = segment * (i + 1)
+
+        # Sample a value within the segment
+        s = np.random.uniform(a, b)
+        idx, priority, experience = memory_buffer.get_leaf(s)
+
+        experiences.append(experience)
+        indexes.append(idx)
+        priorities.append(priority)
+
+    # Extract components from experiences
+    states = np.array([e.state for e in experiences], dtype=np.float32)
+    actions = np.array([e.action for e in experiences], dtype=np.int32)
+    rewards = np.array([e.reward for e in experiences], dtype=np.float32)
+    next_states = np.array([e.next_state for e in experiences], dtype=np.float32)
+    dones = np.array([e.done for e in experiences], dtype=np.float32)
+
+    # Calculate Importance-Sampling (IS) weights
+    sampling_probabilities = priorities / total_priority
+    is_weights = np.power(current_size * sampling_probabilities, -beta)
+    is_weights /= is_weights.max()  # Normalize IS weights
+
+    # Convert to tensors
+    states = tf.convert_to_tensor(states, dtype=tf.float32)
+    actions = tf.convert_to_tensor(actions, dtype=tf.int32)
+    rewards = tf.convert_to_tensor(rewards, dtype=tf.float32)
+    next_states = tf.convert_to_tensor(next_states, dtype=tf.float32)
+    dones = tf.convert_to_tensor(dones, dtype=tf.float32)
+    is_weights = tf.convert_to_tensor(is_weights, dtype=tf.float32)
+
+    return (states, actions, rewards, next_states, dones), indexes, is_weights
+```
+This function is responsible for sampling experiences from the memory_buffer with prioritization. It first calculates the total priority and divides it into segments to ensure that experiences are sampled proportionally to their priority. A random value is selected within each segment, and the corresponding experience is retrieved from the SumTree.
+
+The function extracts the state, action, reward, next_state, and done from the sampled experiences, and it computes importance-sampling weights to adjust for any bias introduced by prioritization. These weights ensure that experiences with lower probabilities are given more importance during training. Finally, the function converts all components into tensors to be used for training and returns them along with the indexes and importance-sampling weights.
+
+**6.7) Action Selection and Model Evaluation Functions**
+
+At this stage in our reinforcement learning model, we handle action selection, TD error calculation, priority updating, loss computation, learning, and model evaluation. Each of these components plays a crucial role in enabling the agent to make informed decisions, update its learning parameters, and optimize its trading strategies over time.
+
+**Action Selection**
+
+```python
+def get_action(state, epsilon, model):
+    """
+    Chooses an action based on the epsilon-greedy strategy, using the provided model.
+    """
+    if np.random.rand() <= epsilon:
+        return random.choice([0, 1, 2])
+    else:
+        state = np.expand_dims(state, axis=0)  # Shape: (1, lookback_window, n_features)
+        q_values = model(state)
+        return np.argmax(q_values.numpy()[0])
+```
+The `get_action` function is responsible for selecting an action using an epsilon-greedy strategy. If a random number is less than epsilon, the function explores by choosing a random action (0, 1, or 2). Otherwise, the model is used to exploit by selecting the action with the highest predicted Q-value.
+
+**Computing Temporal Difference (TD) Error**
+
+```python
+def compute_td_error(q_network, target_q_network, experiences, gamma):
+    """Computes the TD error for a batch of experiences."""
+    states, actions, rewards, next_states, dones = experiences
+
+    # Compute target Q-values
+    q_next = target_q_network(next_states)
+    max_q_next = tf.reduce_max(q_next, axis=1)
+    y_targets = rewards + gamma * max_q_next * (1 - dones)
+
+    # Compute current Q-values
+    q_values = q_network(states)
+    indices = tf.stack([tf.range(q_values.shape[0]), actions], axis=1)
+    q_values_taken = tf.gather_nd(q_values, indices)
+
+    # TD Errors
+    td_errors = y_targets - q_values_taken
+    return td_errors.numpy()
+```
+The `compute_td_error` function calculates the TD error, which is the difference between the predicted Q-values and the target Q-values. These errors are used to update priorities in the experience replay buffer.
+
+**Updating Priorities in the Replay Buffer**
+
+```python
+def update_priorities(memory_buffer, indexes, td_errors, alpha=alpha):
+    """
+    Updates the priorities of sampled experiences in the replay buffer.
+    """
+    for idx, td_error in zip(indexes, td_errors):
+        priority = (np.abs(td_error) + 1e-5) ** alpha
+        memory_buffer.update(idx, priority)
+```
+The `update_priorities` function updates the priorities of experiences in the memory buffer based on the TD errors. The priority is computed using the absolute TD error and raised to the power of alpha for prioritization purposes.
+
+**Computing the Loss**
+
+```python
+def compute_loss(experiences, gamma, q_network, target_q_network, is_weights):
+    # Unpack the mini-batch of experience tuples
+    states, actions, rewards, next_states, done_vals = experiences
+
+    # Compute max Q^(s,a)
+    max_qsa = tf.reduce_max(target_q_network(next_states), axis=-1)
+
+    # Set y = R if episode terminates, otherwise set y = R + γ max Q^(s,a).
+    y_targets = rewards + (gamma * max_qsa * (1 - done_vals))
+
+    # Get the q_values
+    q_values = q_network(states)
+    q_values = tf.gather_nd(q_values, tf.stack([tf.range(q_values.shape[0]),
+                                                tf.cast(actions, tf.int32)], axis=1))
+
+    # Calculate the loss
+    loss = MSE(y_targets, q_values)
+    
+    # Apply importance-sampling weights
+    weighted_loss = loss * is_weights
+
+    # Return the mean weighted loss
+    return tf.reduce_mean(weighted_loss)
+```
+The `compute_loss` function computes the loss by comparing the Q-values predicted by the q_network with the target Q-values. The loss is weighted using the importance-sampling weights to account for prioritized replay.
+
+**Agent Learning and Updating Networks**
+
+```python
+@tf.function
+def agent_learn(experiences, gamma, is_weights):
+    """
+    Updates the weights of the Q networks.
+    """
+    # Calculate the loss
+    with tf.GradientTape() as tape:
+        loss = compute_loss(experiences, gamma, q_network, target_q_network, is_weights)
+
+    # Get the gradients of the loss with respect to the weights.
+    gradients = tape.gradient(loss, q_network.trainable_variables)
+
+    # Update the weights of the q_network.
+    optimizer.apply_gradients(zip(gradients, q_network.trainable_variables))
+
+    # Update the weights of target q_network
+    update_target_network(q_network, target_q_network)
+```
+The `agent_learn` function performs backpropagation to update the q_network weights using the computed gradients. It also periodically updates the target network weights to ensure stability in training.
+
+**Updating the Target Network**
+
+```python
+def update_target_network(q_network, target_q_network):
+    for target_weights, q_net_weights in zip(target_q_network.weights, q_network.weights):
+        target_weights.assign(TAU * q_net_weights + (1.0 - TAU) * target_weights)
+```
+The `update_target_network` function updates the target network by slowly adjusting its weights toward the Q-network’s weights, using a parameter TAU. This soft update stabilizes learning by making gradual updates.
+
+**Checking Update Conditions**
+
+```python
+def check_update_conditions(t, num_steps_upd, memory_buffer):
+    if (t + 1) % num_steps_upd == 0 and memory_buffer.size >= batch_size:
+        return True
+    else:
+        return False
+```
+The `check_update_conditions` function checks whether the conditions for updating the Q-network are met. It ensures that updates only occur after a certain number of steps and when the replay buffer has enough experiences.
+
+**Evaluating the Model**
+
+```python
+def evaluate_model(env, model):
+    """
+    Evaluates the model on the entire environment and returns the total reward and final portfolio value.
+    """
+    state = env.reset_eval()
+    total_reward_val = 0
+    done = False
+    final_portfolio_value = env.initial_balance  # Initialize with the initial balance
+
+    while not done:
+        action = get_action(state, epsilon=0, model=model)
+        next_state, reward, done, info = env.step(action)
+        total_reward_val += reward
+        final_portfolio_value = info['portfolio_value']
+        state = next_state
+
+    return total_reward_val, final_portfolio_value
+```
+The `evaluate_model` function evaluates the model by running it through the entire environment without exploration (i.e., always using the best action). It returns the total reward and the final portfolio value. This is typically used to assess how well the model performs on unseen data.
+
+Each of these functions plays a crucial role in reinforcing the learning loop, updating the model's weights, prioritizing important experiences, and evaluating the performance of the reinforcement learning agent.
+
+
+
+
+
+
 
 
 
