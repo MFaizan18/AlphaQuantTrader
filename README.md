@@ -1185,6 +1185,268 @@ The `evaluate_model` function evaluates the model by running it through the enti
 
 Each of these functions plays a crucial role in reinforcing the learning loop, updating the model's weights, prioritizing important experiences, and evaluating the performance of the reinforcement learning agent.
 
+**6.8) Network Architecture and Training Hyperparameters**
+
+At this point, we are defining the neural network architecture that the agent will use to predict Q-values for actions. This deep Q-network (DQN) is responsible for approximating the Q-values in reinforcement learning, helping the agent make decisions. The architecture is built using convolutional layers and LSTM layers, making it suitable for handling time-series data in stock trading.
+
+```python
+# Access the parameters from the environment
+lookback_window = env.lookback_window
+n_features = env.n_features
+num_actions = env.action_space.n
+
+# Set the random seed for TensorFlow
+SEED = 0 
+tf.random.set_seed(SEED)
+
+# Define regularization and dropout parameters
+regularization_term = l2(0.003)
+dropout_rate = 0.1
+
+def create_model():
+    model = Sequential([
+        Input(shape=(lookback_window, n_features)),
+        Conv1D(filters=32, kernel_size=3, activation='relu', padding='same'),
+        BatchNormalization(),
+        Dropout(dropout_rate),
+        Bidirectional(LSTM(32, return_sequences=True, kernel_regularizer=regularization_term)),
+        BatchNormalization(),
+        Dropout(dropout_rate),
+        Bidirectional(LSTM(32, return_sequences=True, kernel_regularizer=regularization_term)),
+        BatchNormalization(),
+        Dropout(dropout_rate),
+        Bidirectional(LSTM(16, return_sequences=False, kernel_regularizer=regularization_term)),
+        BatchNormalization(),
+        Dropout(dropout_rate),
+        Dense(64, activation='relu', kernel_regularizer=regularization_term),
+        BatchNormalization(),
+        Dropout(dropout_rate),
+        Dense(32, activation='relu', kernel_regularizer=regularization_term),
+        Dropout(dropout_rate),
+        Dense(num_actions, activation='linear')
+    ])
+    return model
+
+# Create the Q-network and target Q-network
+q_network = create_model()
+target_q_network = create_model()
+target_q_network.set_weights(q_network.get_weights())
+
+# Optimizer
+optimizer = tf.keras.optimizers.Adam(learning_rate=0.0001, clipnorm=1.0)
+```
+
+This code defines the architecture of the Q-network and target Q-network. The network uses a combination of convolutional and LSTM layers, which are suitable for processing sequential data like stock prices. Convolutional layers help extract local patterns, while LSTM layers capture the long-term dependencies in the time-series data.
+
+To prevent overfitting, `BatchNormalization` is used after each layer to normalize the activations, and `Dropout` is added for regularization. The L2 regularization (controlled by `regularization_term`) further helps in reducing overfitting by penalizing large weights in the network. The network ends with fully connected layers, and the final layer has a linear activation function to output Q-values for all possible actions.
+
+Two networks are created: the `q_network` is used to make predictions, and the `target_q_network` is updated periodically to provide stable targets during training. The optimizer chosen is Adam, with a learning rate of 0.0001 and gradient clipping to improve training stability.
+
+**6.9) Updated Hyperparameters**
+
+In this section, we define the key hyperparameters used to control the reinforcement learning process. These hyperparameters influence various aspects of how the agent explores the environment, learns from experiences, and improves over time. Adjusting these values is crucial for optimizing the agent's performance and ensuring that it learns effectively.
+
+```python
+# Updated Hyperparameters
+batch_size = 256
+gamma = 0.99
+epsilon = 1.0
+epsilon_decay = 0.995 # Changed Confirmation
+epsilon_min = 0.1
+NUM_STEPS_FOR_UPDATE =4 
+TAU = 1e-2
+acceptable_drawdown = 0.15
+render_interval = 100
+evaluation_interval = 10
+
+# Initialize dynamic early stopping parameters
+best_val_reward = -np.inf
+episodes_without_improvement = 0
+dynamic_patience = int(0.2 * num_episodes)
+```
+Here, we update several key hyperparameters:
+`Batch Size`: This determines how many experiences are sampled and used in each training step.
+`Gamma (γ)`: The discount factor, which controls how much future rewards are weighted when calculating the total reward. A value of 0.99 means that the agent is highly future-focused.
+`Epsilon (ε)`: The exploration rate used in the epsilon-greedy strategy. The agent starts by exploring (with ε = 1.0) and gradually shifts toward exploitation as ε decays over time.
+`Epsilon Decay`: This controls how quickly the exploration rate decreases. As training progresses, the agent reduces exploration and relies more on learned experiences.
+`TAU`: The soft update parameter used for updating the target network. This controls how quickly the target Q-network's weights are updated to match the Q-network.
+`Acceptable Drawdown`: The maximum allowable percentage drop in portfolio value before the episode terminates early, used to manage risk.
+`Render Interval`: Determines how often the environment will be rendered visually during training for monitoring purposes.
+`Evaluation Interval`: Controls how frequently the agent is evaluated on validation data during training.
+Additionally, dynamic early stopping parameters like `best_val_reward`, `episodes_without_improvement`, and `dynamic_patience` are set to allow early stopping if the model's performance stagnates during training. These parameters help improve efficiency and avoid overfitting by halting training when no significant improvements are observed.
+
+**6.10) Training Loop**
+
+The training loop is the heart of the reinforcement learning process, where the agent learns from interacting with the environment over multiple episodes. In each episode, the agent takes actions, collects rewards, stores experiences, and updates its Q-network to improve future decision-making. This process is critical for building an effective trading agent that can generalize and adapt to various market conditions. Here’s how it all fits together.
+
+```python
+for episode in range(num_episodes):
+
+    try:
+        # Reset the environment and get the initial sequence of timesteps (the state)
+        state = env.reset()
+    except ValueError as e:
+        print(f"Episode {episode + 1}: {e}")
+        print("Terminating training due to insufficient data to form any sequences.")
+        break  # Exit the training loop
+
+    total_reward = 0
+    
+    portfolio_value = env.initial_balance
+    highest_portfolio_value = portfolio_value
+    max_drawdown = 0  # Reset max_drawdown for each episode
+
+    max_num_timesteps = env.num_timesteps
+
+    # Validate that max_num_timesteps is positive
+    if max_num_timesteps <= 0:
+        print(f"Episode {episode + 1}: max_num_timesteps = {max_num_timesteps}. Skipping episode.")
+        continue  # Skip to the next episode
+
+    for t in range(max_num_timesteps):
+
+        # Get the action using epsilon-greedy strategy
+        action = get_action(state, epsilon, q_network)
+
+        # Step the environment forward by one timestep and get the next sequence of timesteps
+        next_state, reward, done, info = env.step(action)
+
+        # Update portfolio value using the info dictionary
+        portfolio_value = info.get('portfolio_value', env.initial_balance)
+
+        # Update highest portfolio value and calculate drawdown
+        highest_portfolio_value = max(highest_portfolio_value, portfolio_value)
+        drawdown = (highest_portfolio_value - portfolio_value) / highest_portfolio_value
+        max_drawdown = max(max_drawdown, drawdown)  # Update max drawdown for this episode
+
+        # Store experience in replay buffer
+        exp = Experience(state, action, reward, next_state, done)
+        store_experience(memory_buffer, exp)
+
+        # If max drawdown exceeds acceptable level, terminate the episode early
+        if max_drawdown > acceptable_drawdown:
+            print(f"Episode {episode + 1} terminated early due to excessive max drawdown ({max_drawdown:.2%}).")
+            break
+
+        # If the environment signals done, terminate the episode
+        if done:
+            print(f"Episode {episode + 1} terminated by environment signal.")
+            break
+
+        # Update the Q-network every NUM_STEPS_FOR_UPDATE steps
+        if check_update_conditions(t, NUM_STEPS_FOR_UPDATE, memory_buffer):
+            experiences, indexes, is_weights = sample_experiences(memory_buffer, batch_size, beta)
+            if experiences is not None:
+                # Compute TD errors
+                td_errors = compute_td_error(q_network, target_q_network, experiences, gamma)
+                # Update priorities in the replay buffer
+                update_priorities(memory_buffer, indexes, td_errors)
+                # Train the agent
+                agent_learn(experiences, gamma, is_weights)
+
+        # Move to the next state and accumulate rewards
+        state = next_state
+        total_reward += reward
+
+    # Decay epsilon (exploration rate)
+    if epsilon > epsilon_min:
+        epsilon *= epsilon_decay
+        epsilon = max(epsilon, epsilon_min)  # Ensure epsilon does not go below epsilon_min
+
+    # Increment beta towards beta_end
+    beta = min(beta + beta_increment_per_episode, beta_end)
+
+    # Evaluate model on validation data every `evaluation_interval` episodes
+    if (episode + 1) % evaluation_interval == 0:
+        val_reward, final_portfolio_value = evaluate_model(val_env, q_network)
+        print(f"Episode {episode + 1}: Validation Reward = {val_reward}, Training Reward = {total_reward}")
+
+        # Calculate percentage return on validation data
+        percentage_return = ((final_portfolio_value - env.initial_balance) / env.initial_balance) * 100
+        print(f"Episode {episode + 1}: Validation Percentage Return = {percentage_return:.2f}%")
+
+        # Update validation rewards list and early stopping criteria
+        if val_reward > best_val_reward:
+            best_val_reward = val_reward
+            episodes_without_improvement = 0  # Reset counter
+            
+        else:
+            episodes_without_improvement += 1  # Increment counter if no improvement
+
+        # Check for dynamic early stopping
+        if episodes_without_improvement >= dynamic_patience:
+            print(f"Early stopping triggered after {episode + 1} episodes with no improvement.")
+            break
+
+    # Render the environment every `render_interval` episodes
+    if (episode + 1) % render_interval == 0:
+        env.render()
+
+# -------------------------
+# Save the model after training completes or stops
+# -------------------------
+print("Training completed or stopped. Saving final model...")
+os.makedirs('models', exist_ok=True)
+q_network.save('models/q_network_final_model.keras')
+print("Final model saved successfully.")
+```
+In this training loop, each episode starts by resetting the environment, and the agent interacts with it through a series of steps. The agent selects actions using the epsilon-greedy strategy, balances exploration and exploitation, and stores experiences in the replay buffer. If the maximum allowable drawdown is exceeded, the episode is terminated early to prevent large losses. The Q-network is updated periodically based on a batch of sampled experiences, and the agent continuously improves by minimizing the TD error. Throughout training, epsilon (exploration rate) decays and beta (importance-sampling weight) increments. The model is evaluated at regular intervals, and early stopping is triggered if no improvement is observed for a set number of episodes. After training concludes, the final model is saved for future use.
+
+# 7) Model Testing 
+
+**7.1) Testing the Saved Model on Test Data**
+
+After training the Q-network, the next logical step is to test its performance on unseen test data. This section outlines how the model is loaded, evaluated, and its performance visualized. We preprocess the test dataset similarly to the training and validation data, ensuring no overlap and proper scaling. Then, we load the saved model and run it through the test environment to evaluate how well it generalizes to new data.
+
+```python
+# Load and preprocess the test data
+test_data = data[data.index > val_end_date].copy()
+
+# Ensure there's no overlap with validation data
+assert val_data['Date'].max() < test_data.index.min(), "Validation and test data overlap!"
+
+# Apply the same scaling to the test data
+test_data[features_to_normalize] = scaler.transform(test_data[features_to_normalize])
+
+# Reset index but keep the date as a column
+test_data.reset_index(inplace=True)
+test_data.rename(columns={'index': 'Date'}, inplace=True)
+
+# Ensure 'Date' column is datetime
+test_data['Date'] = pd.to_datetime(test_data['Date'])
+
+# Now ensure there's no overlap with validation data using 'Date' columns
+assert val_data['Date'].max() < test_data['Date'].min(), "Validation and test data overlap!"
+
+# Instantiate the test environment
+test_env = TradingEnv(test_data)
+
+# Load the best saved model
+trained_q_network = tf.keras.models.load_model('models/q_network_final_model.keras')
+
+# Evaluate the model on the test environment using the existing evaluate_model function
+test_reward, test_final_portfolio_value = evaluate_model(test_env, trained_q_network)
+
+# Calculate percentage return on test data
+test_percentage_return = ((test_final_portfolio_value - test_env.initial_balance) / test_env.initial_balance) * 100
+
+print(f"Test Reward = {test_reward}")
+print(f"Test Final Portfolio Value = {test_final_portfolio_value}")
+print(f"Test Percentage Return = {test_percentage_return:.2f}%")
+
+# Visualize the agent's performance on the test data
+test_env.render()
+```
+In this section, the test dataset is prepared similarly to the validation and training datasets, ensuring consistency in scaling. The trained model is then loaded using TensorFlow's `load_model` function. The agent is evaluated on the test environment using the `evaluate_model` function, which simulates trading on the test dataset and provides performance metrics such as the total reward, final portfolio value, and percentage return. Finally, the agent's performance is visualized using the `render` function, providing insights into its actions and portfolio evolution during testing.
+
+
+
+
+
+
+
+
+
 
 
 
