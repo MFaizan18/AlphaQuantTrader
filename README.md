@@ -1443,6 +1443,55 @@ In this section, the test dataset is prepared similarly to the validation and tr
 ![test_reward](test_reward.png)
 ![test_actions](test_actions.png)
 
+**7.2) Sharpe Ratio and Maximum Drawdown**
+
+The final step in evaluating the agent's performance involves calculating additional performance metrics that provide more insights into the quality of the model's predictions and its robustness. This section introduces the calculation of key financial metrics like the Sharpe Ratio and Maximum Drawdown. These metrics are useful for evaluating the risk-adjusted return and the worst loss encountered during the trading period, respectively.
+
+```python
+# Calculate additional performance metrics
+def calculate_performance_metrics(env):
+    """
+    Calculate performance metrics such as Sharpe ratio and maximum drawdown.
+    """
+    portfolio_values = [entry['portfolio_value'] for entry in env.trading_history]
+    returns = np.diff(portfolio_values)
+    
+    # Sharpe Ratio
+    sharpe_ratio = np.mean(returns) / (np.std(returns) + 1e-9)
+    
+    # Maximum Drawdown
+    peak = portfolio_values[0]
+    max_drawdown = 0
+    for value in portfolio_values:
+        if value > peak:
+            peak = value
+        drawdown = (peak - value) / peak
+        if drawdown > max_drawdown:
+            max_drawdown = drawdown
+    
+    return sharpe_ratio, max_drawdown
+
+# Calculate and print performance metrics
+sharpe_ratio, max_drawdown = calculate_performance_metrics(test_env)
+print(f"Test Sharpe Ratio = {sharpe_ratio:.4f}")
+print(f"Test Maximum Drawdown = {max_drawdown:.2%}")
+```
+In this part of the project, we calculate the Sharpe Ratio, which measures the average return earned in excess of the risk-free rate per unit of volatility or total risk, and the Maximum Drawdown, which measures the largest single drop from peak to trough during the evaluation period. By calculating these performance metrics, we can gain insights into how well the agent performed in terms of risk-adjusted returns and how significant the largest losses were during trading. These metrics help further validate the performance of the trained reinforcement learning model in a trading environment.
+
+```
+---------------------------------------------------
+|               Performance Results               |
+---------------------------------------------------
+| Test Reward               |   788,750.77        |
+| Test Final Portfolio Value| 1,034,368.61        |
+| Test Percentage Return     |     3.44%          |
+| Test Sharpe Ratio          |     0.1159         |
+| Test Maximum Drawdown      |     0.67%          |
+---------------------------------------------------
+```
+
+
+
 
 
 
