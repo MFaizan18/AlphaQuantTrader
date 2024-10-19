@@ -1489,11 +1489,23 @@ In this part of the project, we calculate the Sharpe Ratio, which measures the a
 | Test Maximum Drawdown      |     0.67%          |
 ---------------------------------------------------
 ```
+# 8) Conclusion and Future Improvements
 
+In this project, we built an algorithmic trading model using reinforcement learning with Prioritized Experience Replay, convolutional neural networks, and bidirectional LSTMs. We trained and tested the model on stock market data, aiming to maximize portfolio returns while minimizing risks such as drawdown. Although the model achieved a modest percentage return of 3.44%, with a Sharpe Ratio of 0.1159, it suggests that the current performance is suboptimal for real-world applications. The Maximum Drawdown of 0.67% shows good risk control, but there is significant room for improvement in terms of profitability and the overall robustness of the trading strategy.
 
+**Key Challenges and Areas for Improvement:**
 
+`Computational Limitations`: One of the main challenges we faced was the computational restraint. Training the model for a large number of episodes would provide more opportunities for the agent to learn long-term patterns in the stock market. However, due to hardware constraints, we had to limit the number of episodes, which likely affected the model's ability to converge to a truly optimal policy.
 
+`Reward System`: The reward system in the current implementation could be further refined. The immediate rewards are based on price differences, but more sophisticated reward structures could be explored, such as using profit targets, risk-adjusted returns, or penalizing excessive drawdowns. Additionally incorporating slippage, and market impact more comprehensively would make the model more realistic and effective.
 
+`Longer Training Duration`: Increasing the number of training episodes or using more advanced techniques like distributed training could help the model explore a larger portion of the state-action space. This would allow the agent to learn more complex patterns and potentially improve both profitability and risk management.
+
+`Advanced Models and Techniques`: The model could benefit from exploring more advanced architectures, such as transformer-based models, which have recently shown success in time-series analysis and finance. Techniques like Proximal Policy Optimization (PPO) or A3C could also be explored to enhance the reinforcement learning framework.
+
+`Hyperparameter Tuning`: Fine-tuning hyperparameters like batch size, learning rate, and exploration-exploitation strategies (epsilon decay, gamma, etc.) could further improve the model's performance. Automated methods like Bayesian optimization or genetic algorithms might provide better results than manual tuning.
+
+In conclusion, this project provided a strong foundation for building a trading agent using reinforcement learning, but further improvements in training, reward design, and model architecture are essential for achieving a performance level suitable for real-world trading scenarios. By addressing the mentioned challenges and exploring advanced methods, the model can be fine-tuned to perform better in complex, dynamic financial environments.
 
 
 
