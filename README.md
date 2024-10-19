@@ -1439,6 +1439,9 @@ test_env.render()
 ```
 In this section, the test dataset is prepared similarly to the validation and training datasets, ensuring consistency in scaling. The trained model is then loaded using TensorFlow's `load_model` function. The agent is evaluated on the test environment using the `evaluate_model` function, which simulates trading on the test dataset and provides performance metrics such as the total reward, final portfolio value, and percentage return. Finally, the agent's performance is visualized using the `render` function, providing insights into its actions and portfolio evolution during testing.
 
+![test_portfolio_value Plot of Volatility](test_portfolio_value.png)
+![test_reward Plot of Volatility](test_reward.png)
+![test_actions Plot of Volatility](testactions.png)
 
 
 
